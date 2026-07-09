@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("CLIENT") // "ADMIN" | "CLIENT"
+  createdAt    DateTime @default(now())
+
+  integration Integration?
+  snapshots   StatSnapshot[]
+  calls       UpcomingCall[]
+  usedInvite  Invite?        @relation("UsedInvite")
+}
+
+// One-time invite codes the agency hands to a client so they can create
+// their own account. Signup is impossible without one.
+model Invite {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  label     String? // e.g. the client's name, for the admin's reference
+  createdAt DateTime  @default(now())
+  usedAt    DateTime?
+  usedById  String?   @unique
+  usedBy    User?     @relation("UsedInvite", fields: [usedById], references: [id])
+}
+
+// Per-client integration credentials. All secrets are AES-256-GCM encrypted
+// at rest (see src/lib/crypto.ts).
+model Integration {
+  userId String @id
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  manychatKeyEnc   String?
+  igTokenEnc       String?
+  igUserId         String?
+  calendlyTokenEnc String?
+
+  lastSyncAt    DateTime?
+  manychatError String?
+  instagramError String?
+  calendlyError String?
+
+  updatedAt DateTime @updatedAt
+}
+
+// Point-in-time metrics captured on every sync — this is what powers the
+// stat tiles and the trend charts.
+model StatSnapshot {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  capturedAt DateTime @default(now())
+
+  // Instagram
+  igFollowers          Int?
+  igFollows            Int?
+  igMedia              Int?
+  igReachDay           Int?
+  igProfileViewsDay    Int?
+  igAccountsEngagedDay Int?
+  igUsername           String?
+
+  // ManyChat
+  mcSubscribers Int?
+  mcPageName    String?
+
+  @@index([userId, capturedAt])
+}
+
+// Upcoming Calendly calls, replaced wholesale on each sync.
+model UpcomingCall {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventUri     String
+  name         String
+  startTime    DateTime
+  endTime      DateTime
+  inviteeName  String?
+  inviteeEmail String?
+  joinUrl      String?
+
+  @@unique([userId, eventUri])
+  @@index([userId, startTime])
+}

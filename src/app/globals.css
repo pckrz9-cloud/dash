@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Chart chrome & ink — validated reference palette (light + dark selected) */
+:root {
+  --surface-1: #fcfcfb;
+  --plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border-hairline: rgba(11, 11, 11, 0.1);
+  --series-1: #2a78d6; /* blue — followers / primary trend */
+  --series-2: #1baf7a; /* aqua — subscribers */
+  --delta-good: #006300;
+  --status-critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border-hairline: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+    --series-2: #199e70;
+    --delta-good: #0ca30c;
+    --status-critical: #d03b3b;
+  }
+}
+
+body {
+  background: var(--plane);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.card {
+  @apply rounded-xl border border-hairline bg-surface p-5;
+}
+
+.input {
+  @apply w-full rounded-lg border border-hairline bg-plane px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-series1;
+}
+
+.btn-primary {
+  @apply rounded-lg bg-series1 px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50;
+}
+
+.btn-ghost {
+  @apply rounded-lg border border-hairline px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:bg-surface;
+}
