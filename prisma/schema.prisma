@@ -15,10 +15,11 @@ model User {
   role         String   @default("CLIENT") // "ADMIN" | "CLIENT"
   createdAt    DateTime @default(now())
 
-  integration Integration?
-  snapshots   StatSnapshot[]
-  calls       UpcomingCall[]
-  usedInvite  Invite?        @relation("UsedInvite")
+  integration  Integration?
+  snapshots    StatSnapshot[]
+  calls        UpcomingCall[]
+  boosendStats BoosendStat[]
+  usedInvite   Invite?        @relation("UsedInvite")
 }
 
 // One-time invite codes the agency hands to a client so they can create
@@ -39,15 +40,13 @@ model Integration {
   userId String @id
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  manychatKeyEnc   String?
   igTokenEnc       String?
   igUserId         String?
   calendlyTokenEnc String?
 
-  lastSyncAt    DateTime?
-  manychatError String?
+  lastSyncAt     DateTime?
   instagramError String?
-  calendlyError String?
+  calendlyError  String?
 
   updatedAt DateTime @updatedAt
 }
@@ -69,11 +68,22 @@ model StatSnapshot {
   igAccountsEngagedDay Int?
   igUsername           String?
 
-  // ManyChat
-  mcSubscribers Int?
-  mcPageName    String?
-
   @@index([userId, capturedAt])
+}
+
+// BooSend has no public API, so its DM stats are logged manually (by the
+// client on their dashboard, or by the agency admin) — one row per day.
+model BoosendStat {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime // normalized to midnight UTC, one row per day
+  conversations Int?
+  leads         Int?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
 
 // Upcoming Calendly calls, replaced wholesale on each sync.

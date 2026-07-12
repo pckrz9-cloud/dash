@@ -23,10 +23,8 @@ export async function GET() {
       integration: {
         select: {
           lastSyncAt: true,
-          manychatKeyEnc: true,
           igTokenEnc: true,
           calendlyTokenEnc: true,
-          manychatError: true,
           instagramError: true,
           calendlyError: true,
         },
@@ -41,14 +39,11 @@ export async function GET() {
       createdAt: c.createdAt,
       lastSyncAt: c.integration?.lastSyncAt ?? null,
       connected: {
-        manychat: Boolean(c.integration?.manychatKeyEnc),
         instagram: Boolean(c.integration?.igTokenEnc),
         calendly: Boolean(c.integration?.calendlyTokenEnc),
       },
       hasErrors: Boolean(
-        c.integration?.manychatError ||
-          c.integration?.instagramError ||
-          c.integration?.calendlyError
+        c.integration?.instagramError || c.integration?.calendlyError
       ),
     })),
   });

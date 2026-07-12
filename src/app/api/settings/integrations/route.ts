@@ -18,13 +18,11 @@ export async function GET() {
     where: { userId: session.user.id },
   });
   return NextResponse.json({
-    manychatKey: maskSecret(integration?.manychatKeyEnc),
     igToken: maskSecret(integration?.igTokenEnc),
     igUserId: integration?.igUserId ?? null,
     calendlyToken: maskSecret(integration?.calendlyTokenEnc),
     lastSyncAt: integration?.lastSyncAt ?? null,
     errors: {
-      manychat: integration?.manychatError ?? null,
       instagram: integration?.instagramError ?? null,
       calendly: integration?.calendlyError ?? null,
     },
@@ -32,11 +30,10 @@ export async function GET() {
 }
 
 const schema = z.object({
-  manychatKey: z.string().max(500).optional(),
   igToken: z.string().max(1000).optional(),
   igUserId: z.string().max(100).optional(),
   calendlyToken: z.string().max(1000).optional(),
-  clear: z.array(z.enum(["manychat", "instagram", "calendly"])).optional(),
+  clear: z.array(z.enum(["instagram", "calendly"])).optional(),
 });
 
 // PUT: save credentials for the logged-in user only. Empty fields are left
@@ -51,19 +48,14 @@ export async function PUT(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
-  const { manychatKey, igToken, igUserId, calendlyToken, clear } = parsed.data;
+  const { igToken, igUserId, calendlyToken, clear } = parsed.data;
 
   const data: Record<string, string | null> = {};
-  if (manychatKey?.trim()) data.manychatKeyEnc = encrypt(manychatKey.trim());
   if (igToken?.trim()) data.igTokenEnc = encrypt(igToken.trim());
   if (igUserId?.trim()) data.igUserId = igUserId.trim();
   if (calendlyToken?.trim()) data.calendlyTokenEnc = encrypt(calendlyToken.trim());
 
   for (const c of clear ?? []) {
-    if (c === "manychat") {
-      data.manychatKeyEnc = null;
-      data.manychatError = null;
-    }
     if (c === "instagram") {
       data.igTokenEnc = null;
       data.igUserId = null;
@@ -90,7 +82,6 @@ export async function PUT(req: Request) {
   return NextResponse.json({
     ok: true,
     errors: {
-      manychat: integration?.manychatError ?? null,
       instagram: integration?.instagramError ?? null,
       calendly: integration?.calendlyError ?? null,
     },

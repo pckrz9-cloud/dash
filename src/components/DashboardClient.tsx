@@ -16,13 +16,17 @@ interface Snapshot {
   igProfileViewsDay: number | null;
   igAccountsEngagedDay: number | null;
   igUsername: string | null;
-  mcSubscribers: number | null;
-  mcPageName: string | null;
+}
+
+interface BoosendDay {
+  date: string;
+  conversations: number | null;
+  leads: number | null;
 }
 
 interface StatsResponse {
-  connected: { manychat: boolean; instagram: boolean; calendly: boolean };
-  errors: { manychat: string | null; instagram: string | null; calendly: string | null };
+  connected: { instagram: boolean; calendly: boolean };
+  errors: { instagram: string | null; calendly: string | null };
   lastSyncAt: string | null;
   latest: Snapshot | null;
   previous: Snapshot | null;
@@ -30,8 +34,12 @@ interface StatsResponse {
     capturedAt: string;
     igFollowers: number | null;
     igReachDay: number | null;
-    mcSubscribers: number | null;
   }[];
+  boosend: {
+    latest: BoosendDay | null;
+    previous: BoosendDay | null;
+    history: BoosendDay[];
+  };
   calls: Call[];
 }
 
@@ -58,11 +66,11 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
     return <p className="py-20 text-center text-sm text-muted">Loading your stats…</p>;
   }
 
-  const { connected, errors, latest, previous, history, calls, lastSyncAt } = data;
-  const nothingConnected = !connected.manychat && !connected.instagram && !connected.calendly;
+  const { connected, errors, latest, previous, history, boosend, calls, lastSyncAt } = data;
+  const nothingConnected = !connected.instagram && !connected.calendly;
 
-  const followerHistory = seriesFrom(history, "igFollowers");
-  const subscriberHistory = seriesFrom(history, "mcSubscribers");
+  const followerHistory = seriesFrom(history, "capturedAt", "igFollowers");
+  const conversationHistory = seriesFrom(boosend.history, "date", "conversations");
 
   return (
     <div className="space-y-6">
@@ -87,7 +95,7 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
         <div className="card border-series1">
           <p className="text-sm">
             <span className="font-semibold">Get set up:</span> connect your
-            ManyChat, Instagram and Calendly accounts in{" "}
+            Instagram and Calendly accounts in{" "}
             <Link href="/settings" className="font-semibold text-series1">
               Settings
             </Link>{" "}
@@ -96,11 +104,10 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
         </div>
       )}
 
-      {(errors.manychat || errors.instagram || errors.calendly) && (
+      {(errors.instagram || errors.calendly) && (
         <div className="card">
           <p className="text-sm font-semibold text-bad">⚠ Connection issues</p>
           <ul className="mt-1 space-y-1 text-sm text-ink-2">
-            {errors.manychat && <li>ManyChat: {errors.manychat}</li>}
             {errors.instagram && <li>Instagram: {errors.instagram}</li>}
             {errors.calendly && <li>Calendly: {errors.calendly}</li>}
           </ul>
@@ -144,33 +151,30 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          ManyChat — AI appointment setter
+          BooSend — AI appointment setter
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile
-            label="Contacts"
-            value={latest?.mcSubscribers}
-            delta={delta(latest?.mcSubscribers, previous?.mcSubscribers)}
-            hint={
-              connected.manychat
-                ? "If blank, your ManyChat plan's API doesn't expose totals"
-                : "Connect ManyChat in Settings"
-            }
+            label="DM conversations"
+            value={boosend.latest?.conversations}
+            delta={delta(boosend.latest?.conversations, boosend.previous?.conversations)}
+            hint="Logged from BooSend"
+          />
+          <StatTile
+            label="Leads captured"
+            value={boosend.latest?.leads}
+            delta={delta(boosend.latest?.leads, boosend.previous?.leads)}
+            hint="Logged from BooSend"
           />
           <StatTile
             label="Calls booked (upcoming)"
             value={connected.calendly ? calls.length : null}
-            hint={connected.calendly ? "From Calendly" : "Connect Calendly in Settings"}
+            hint={connected.calendly ? "From Calendly, automatic" : "Connect Calendly in Settings"}
           />
-          <div className="card col-span-2">
-            <p className="text-sm text-ink-2">Connected account</p>
-            <p className="mt-1 truncate text-lg font-semibold">
-              {latest?.mcPageName ?? (connected.manychat ? "…" : "Not connected")}
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Your AI setter runs on this ManyChat account.
-            </p>
-          </div>
+          <BoosendEntry
+            latest={boosend.latest}
+            onSaved={() => mutate()}
+          />
         </div>
       </section>
 
@@ -181,13 +185,84 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
           color="var(--series-1)"
         />
         <TrendChart
-          title="ManyChat contacts over time"
-          points={subscriberHistory}
+          title="BooSend conversations over time"
+          points={conversationHistory}
           color="var(--series-2)"
         />
       </section>
 
       <CallsList calls={calls} connected={connected.calendly} />
+    </div>
+  );
+}
+
+// Inline form to log today's BooSend numbers (BooSend has no public API, so
+// these come straight from its dashboard).
+function BoosendEntry({
+  latest,
+  onSaved,
+}: {
+  latest: BoosendDay | null;
+  onSaved: () => void;
+}) {
+  const [conversations, setConversations] = useState("");
+  const [leads, setLeads] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    const body: Record<string, number> = {};
+    if (conversations.trim() !== "") body.conversations = Number(conversations);
+    if (leads.trim() !== "") body.leads = Number(leads);
+    if (Object.keys(body).length === 0) return;
+    setBusy(true);
+    setSaved(false);
+    const res = await fetch("/api/boosend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setConversations("");
+      setLeads("");
+      setSaved(true);
+      onSaved();
+    }
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const loggedToday = latest?.date?.slice(0, 10) === today;
+
+  return (
+    <div className="card">
+      <p className="text-sm text-ink-2">Log today&apos;s BooSend stats</p>
+      <div className="mt-2 flex gap-2">
+        <input
+          type="number"
+          min={0}
+          className="input !px-2"
+          placeholder="Convos"
+          aria-label="DM conversations today"
+          value={conversations}
+          onChange={(e) => setConversations(e.target.value)}
+        />
+        <input
+          type="number"
+          min={0}
+          className="input !px-2"
+          placeholder="Leads"
+          aria-label="Leads today"
+          value={leads}
+          onChange={(e) => setLeads(e.target.value)}
+        />
+      </div>
+      <button onClick={save} disabled={busy} className="btn-primary mt-2 w-full !py-1.5">
+        {busy ? "Saving…" : "Save"}
+      </button>
+      <p className="mt-1 text-xs text-muted">
+        {saved ? "Saved ✓" : loggedToday ? "Updated today ✓" : "From your BooSend dashboard"}
+      </p>
     </div>
   );
 }
@@ -200,16 +275,18 @@ function delta(
   return current - prev;
 }
 
-function seriesFrom(
-  history: StatsResponse["history"],
-  key: "igFollowers" | "mcSubscribers" | "igReachDay"
+function seriesFrom<T>(
+  rows: T[],
+  dateKey: keyof T,
+  valueKey: keyof T
 ): TrendPoint[] {
-  // one point per day (the last snapshot of each day)
+  // one point per day (the last entry of each day)
   const byDay = new Map<string, TrendPoint>();
-  for (const h of history) {
-    const v = h[key];
-    if (v == null) continue;
-    byDay.set(h.capturedAt.slice(0, 10), { date: h.capturedAt, value: v });
+  for (const r of rows) {
+    const v: unknown = r[valueKey];
+    const d: unknown = r[dateKey];
+    if (typeof v !== "number" || typeof d !== "string") continue;
+    byDay.set(d.slice(0, 10), { date: d, value: v });
   }
   return [...byDay.values()];
 }

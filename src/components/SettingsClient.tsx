@@ -4,12 +4,11 @@ import useSWR from "swr";
 import { useState } from "react";
 
 interface IntegrationInfo {
-  manychatKey: string | null;
   igToken: string | null;
   igUserId: string | null;
   calendlyToken: string | null;
   lastSyncAt: string | null;
-  errors: { manychat: string | null; instagram: string | null; calendly: string | null };
+  errors: { instagram: string | null; calendly: string | null };
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -20,7 +19,6 @@ export default function SettingsClient() {
     fetcher
   );
   const [form, setForm] = useState({
-    manychatKey: "",
     igToken: "",
     igUserId: "",
     calendlyToken: "",
@@ -28,7 +26,7 @@ export default function SettingsClient() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function save(clear?: ("manychat" | "instagram" | "calendly")[]) {
+  async function save(clear?: ("instagram" | "calendly")[]) {
     setBusy(true);
     setMessage(null);
     const res = await fetch("/api/settings/integrations", {
@@ -50,7 +48,7 @@ export default function SettingsClient() {
         ? `Saved, but some connections failed — ${errs.join(" · ")}`
         : "Saved and synced ✓"
     );
-    setForm({ manychatKey: "", igToken: "", igUserId: "", calendlyToken: "" });
+    setForm({ igToken: "", igUserId: "", calendlyToken: "" });
     mutate();
   }
 
@@ -72,26 +70,15 @@ export default function SettingsClient() {
       )}
 
       <section className="card space-y-3">
-        <header className="flex items-center justify-between">
-          <div>
-            <h2 className="font-semibold">ManyChat</h2>
-            <p className="text-sm text-muted">
-              ManyChat → Settings → API → copy your API key.
-            </p>
-          </div>
-          <StatusPill saved={data?.manychatKey ?? null} error={data?.errors.manychat ?? null} />
+        <header>
+          <h2 className="font-semibold">BooSend</h2>
+          <p className="text-sm text-muted">
+            BooSend doesn&apos;t offer an API yet, so there&apos;s nothing to
+            connect here — log your DM conversations and leads straight on the
+            dashboard, and calls booked by your BooSend agent appear
+            automatically through Calendly below.
+          </p>
         </header>
-        <input
-          className="input"
-          placeholder={data?.manychatKey ? `Saved (${data.manychatKey}) — paste to replace` : "ManyChat API key"}
-          value={form.manychatKey}
-          onChange={(e) => setForm((f) => ({ ...f, manychatKey: e.target.value }))}
-        />
-        {data?.manychatKey && (
-          <button onClick={() => save(["manychat"])} className="text-sm text-bad" disabled={busy}>
-            Disconnect ManyChat
-          </button>
-        )}
       </section>
 
       <section className="card space-y-3">

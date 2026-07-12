@@ -18,7 +18,7 @@ interface ClientRow {
   email: string;
   createdAt: string;
   lastSyncAt: string | null;
-  connected: { manychat: boolean; instagram: boolean; calendly: boolean };
+  connected: { instagram: boolean; calendly: boolean };
   hasErrors: boolean;
 }
 
@@ -112,6 +112,7 @@ export default function AdminClient() {
                 <th className="px-4 py-2 font-medium">Client</th>
                 <th className="px-4 py-2 font-medium">Connections</th>
                 <th className="px-4 py-2 font-medium">Last sync</th>
+                <th className="px-4 py-2 font-medium">Log BooSend stats (today)</th>
               </tr>
             </thead>
             <tbody>
@@ -122,7 +123,6 @@ export default function AdminClient() {
                     <p className="text-muted">{c.email}</p>
                   </td>
                   <td className="px-4 py-2">
-                    <ConnDot on={c.connected.manychat} label="ManyChat" />
                     <ConnDot on={c.connected.instagram} label="Instagram" />
                     <ConnDot on={c.connected.calendly} label="Calendly" />
                     {c.hasErrors && (
@@ -132,11 +132,14 @@ export default function AdminClient() {
                   <td className="px-4 py-2 text-ink-2">
                     {c.lastSyncAt ? new Date(c.lastSyncAt).toLocaleString() : "Never"}
                   </td>
+                  <td className="px-4 py-2">
+                    <BoosendRowEntry userId={c.id} />
+                  </td>
                 </tr>
               ))}
               {clients.data?.clients?.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-muted">
+                  <td colSpan={4} className="px-4 py-6 text-center text-muted">
                     No client accounts yet — send someone an invite code.
                   </td>
                 </tr>
@@ -150,6 +153,61 @@ export default function AdminClient() {
         </p>
       </section>
     </div>
+  );
+}
+
+// BooSend has no public API — the agency can log a client's daily numbers
+// here so the client's dashboard stays fresh without them doing data entry.
+function BoosendRowEntry({ userId }: { userId: string }) {
+  const [conversations, setConversations] = useState("");
+  const [leads, setLeads] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    const body: Record<string, string | number> = { userId };
+    if (conversations.trim() !== "") body.conversations = Number(conversations);
+    if (leads.trim() !== "") body.leads = Number(leads);
+    if (body.conversations === undefined && body.leads === undefined) return;
+    setBusy(true);
+    const res = await fetch("/api/admin/boosend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setBusy(false);
+    if (res.ok) {
+      setConversations("");
+      setLeads("");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <input
+        type="number"
+        min={0}
+        className="input !w-20 !px-2 !py-1"
+        placeholder="Convos"
+        aria-label="DM conversations today"
+        value={conversations}
+        onChange={(e) => setConversations(e.target.value)}
+      />
+      <input
+        type="number"
+        min={0}
+        className="input !w-20 !px-2 !py-1"
+        placeholder="Leads"
+        aria-label="Leads today"
+        value={leads}
+        onChange={(e) => setLeads(e.target.value)}
+      />
+      <button onClick={save} disabled={busy} className="btn-ghost !px-2 !py-1">
+        {saved ? "✓" : busy ? "…" : "Save"}
+      </button>
+    </span>
   );
 }
 

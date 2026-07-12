@@ -2,8 +2,8 @@
 
 A multi-tenant dashboard for your agency's clients. Each client creates their
 **own account** with an invite code you give them, connects their **own**
-ManyChat, Instagram and Calendly credentials, and sees **only their own stats**
-— refreshed automatically.
+Instagram and Calendly credentials, and sees **only their own stats** —
+refreshed automatically — alongside their BooSend AI-setter performance.
 
 ![Stack](https://img.shields.io/badge/stack-Next.js%2014%20·%20Prisma%20·%20NextAuth-blue)
 
@@ -11,8 +11,11 @@ ManyChat, Instagram and Calendly credentials, and sees **only their own stats**
 
 - **Instagram** — followers (with day-over-day change), daily reach, profile
   views, post count, plus a 90-day follower trend chart.
-- **ManyChat** — connected bot/page, contact count where the ManyChat plan's
-  API exposes it, with a trend chart.
+- **BooSend (AI appointment setter)** — DM conversations and leads captured,
+  with day-over-day change and a trend chart, plus upcoming calls booked by
+  the agent (via Calendly, automatic). BooSend has no public API, so the DM
+  numbers are logged in seconds from the dashboard — by the client on their
+  own page, or by you for any client from `/admin`.
 - **Calendly** — every upcoming booked call: date, time, who booked, and a
   Join button for the meeting link.
 
@@ -66,7 +69,6 @@ npm run dev            # http://localhost:3000
 2. Send the code to your client. They open `/signup`, enter it, and create
    their own account (email + password).
 3. They land on **Settings** and paste their keys:
-   - **ManyChat** — ManyChat → Settings → API → API key.
    - **Instagram** — a long-lived Graph API token with `instagram_basic` +
      `instagram_manage_insights`, plus their IG user ID (requires an
      Instagram professional account linked to a Facebook Page — you'll
@@ -104,10 +106,11 @@ Anywhere else, a crontab line works:
 
 ## Notes & limits
 
-- **ManyChat contact totals:** ManyChat's public API exposes rich account
-  info but subscriber/contact totals only on some plans. The dashboard
-  records the total whenever the API provides it and says so on the tile
-  when it doesn't — everything else keeps working.
+- **BooSend stats are manual by design:** BooSend doesn't offer a public
+  API (as of mid-2026), so conversations/leads are logged by hand — one row
+  per day, editable all day, powering the tiles and charts. If BooSend ships
+  an API later, `src/lib/integrations/` is where an automatic client slots
+  in.
 - **Instagram tokens expire.** Long-lived tokens last ~60 days; when one
   expires the client's dashboard shows a clear "Connection issue" banner and
   you'll see a ⚠ next to them in `/admin`. Paste a fresh token in Settings
@@ -125,7 +128,7 @@ prisma/schema.prisma        # Users, invites, credentials, snapshots, calls
 src/lib/auth.ts             # NextAuth (credentials, JWT sessions, roles)
 src/lib/crypto.ts           # AES-256-GCM for API keys at rest
 src/lib/sync.ts             # Per-client sync engine (the tenant boundary)
-src/lib/integrations/       # ManyChat / Instagram / Calendly API clients
+src/lib/integrations/       # Instagram / Calendly API clients
 src/app/api/                # Session-scoped API routes
 src/app/(pages)             # /login /signup / (dashboard) /settings /admin
 src/components/             # Stat tiles, trend charts, calls list, forms

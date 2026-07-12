@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { decrypt } from "@/lib/crypto";
-import { fetchManyChatStats } from "@/lib/integrations/manychat";
 import { fetchInstagramStats } from "@/lib/integrations/instagram";
 import { fetchUpcomingCalls } from "@/lib/integrations/calendly";
 
@@ -27,23 +26,11 @@ export async function syncUser(userId: string, force = false): Promise<void> {
 
   try {
     const errors: {
-      manychatError: string | null;
       instagramError: string | null;
       calendlyError: string | null;
-    } = { manychatError: null, instagramError: null, calendlyError: null };
+    } = { instagramError: null, calendlyError: null };
 
     const snapshot: Record<string, number | string | null> = {};
-
-    // --- ManyChat ---
-    if (integration.manychatKeyEnc) {
-      try {
-        const mc = await fetchManyChatStats(decrypt(integration.manychatKeyEnc));
-        snapshot.mcSubscribers = mc.subscribers;
-        snapshot.mcPageName = mc.pageName;
-      } catch (e) {
-        errors.manychatError = errMsg(e);
-      }
-    }
 
     // --- Instagram ---
     if (integration.igTokenEnc && integration.igUserId) {
