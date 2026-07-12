@@ -44,6 +44,9 @@ model Integration {
   igUserId         String?
   calendlyTokenEnc String?
 
+  // Unguessable token identifying this client's inbound BooSend webhook URL
+  webhookToken String? @unique
+
   lastSyncAt     DateTime?
   instagramError String?
   calendlyError  String?

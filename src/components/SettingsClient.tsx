@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { useState } from "react";
 
 interface IntegrationInfo {
+  webhookToken: string | null;
   igToken: string | null;
   igUserId: string | null;
   calendlyToken: string | null;
@@ -70,15 +71,35 @@ export default function SettingsClient() {
       )}
 
       <section className="card space-y-3">
-        <header>
-          <h2 className="font-semibold">BooSend</h2>
-          <p className="text-sm text-muted">
-            BooSend doesn&apos;t offer an API yet, so there&apos;s nothing to
-            connect here — log your DM conversations and leads straight on the
-            dashboard, and calls booked by your BooSend agent appear
-            automatically through Calendly below.
-          </p>
+        <header className="flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold">BooSend</h2>
+            <p className="text-sm text-muted">
+              One-time setup, automatic forever: in BooSend&apos;s flow
+              builder, add a <em>Webhook</em> action to your automations and
+              paste the matching URL below. Every time the flow runs, your
+              dashboard counts it — no typing needed.
+            </p>
+          </div>
+          <StatusPill saved={data?.webhookToken ?? null} error={null} />
         </header>
+        {data?.webhookToken && (
+          <div className="space-y-2">
+            <WebhookUrl
+              label="New DM conversation → add this webhook to your conversation-start flow"
+              url={hookUrl(data.webhookToken, "conversation")}
+            />
+            <WebhookUrl
+              label="Lead captured → add this webhook to your lead-capture flow"
+              url={hookUrl(data.webhookToken, "lead")}
+            />
+            <p className="text-xs text-muted">
+              Calls your BooSend agent books show up automatically through
+              Calendly below. You can also still adjust today&apos;s numbers by
+              hand on the dashboard.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="card space-y-3">
@@ -139,6 +160,42 @@ export default function SettingsClient() {
       <button onClick={() => save()} disabled={busy} className="btn-primary">
         {busy ? "Saving & testing…" : "Save & test connections"}
       </button>
+    </div>
+  );
+}
+
+function hookUrl(token: string, event: "conversation" | "lead"): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}/api/hooks/boosend/${token}?event=${event}`;
+}
+
+function WebhookUrl({ label, url }: { label: string; url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — the input below is selectable
+    }
+  }
+
+  return (
+    <div>
+      <p className="mb-1 text-sm font-medium">{label}</p>
+      <div className="flex gap-2">
+        <input
+          readOnly
+          className="input font-mono !text-xs"
+          value={url}
+          onFocus={(e) => e.target.select()}
+        />
+        <button onClick={copy} className="btn-ghost shrink-0 !py-1.5">
+          {copied ? "Copied ✓" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }

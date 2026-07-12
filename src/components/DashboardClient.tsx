@@ -158,13 +158,13 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
             label="DM conversations"
             value={boosend.latest?.conversations}
             delta={delta(boosend.latest?.conversations, boosend.previous?.conversations)}
-            hint="Logged from BooSend"
+            hint="Auto via BooSend webhook"
           />
           <StatTile
             label="Leads captured"
             value={boosend.latest?.leads}
             delta={delta(boosend.latest?.leads, boosend.previous?.leads)}
-            hint="Logged from BooSend"
+            hint="Auto via BooSend webhook"
           />
           <StatTile
             label="Calls booked (upcoming)"
@@ -196,8 +196,8 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
   );
 }
 
-// Inline form to log today's BooSend numbers (BooSend has no public API, so
-// these come straight from its dashboard).
+// Inline form to correct/override today's BooSend numbers. Day-to-day the
+// counts arrive automatically via the client's BooSend webhook (Settings).
 function BoosendEntry({
   latest,
   onSaved,
@@ -236,7 +236,7 @@ function BoosendEntry({
 
   return (
     <div className="card">
-      <p className="text-sm text-ink-2">Log today&apos;s BooSend stats</p>
+      <p className="text-sm text-ink-2">Adjust today&apos;s BooSend stats</p>
       <div className="mt-2 flex gap-2">
         <input
           type="number"
@@ -261,7 +261,11 @@ function BoosendEntry({
         {busy ? "Saving…" : "Save"}
       </button>
       <p className="mt-1 text-xs text-muted">
-        {saved ? "Saved ✓" : loggedToday ? "Updated today ✓" : "From your BooSend dashboard"}
+        {saved
+          ? "Saved ✓"
+          : loggedToday
+            ? "Updated today ✓"
+            : "Optional — counts are automatic once your BooSend webhook is set up in Settings"}
       </p>
     </div>
   );

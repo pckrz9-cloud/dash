@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { getServerSession } from "next-auth";
 import { z } from "zod";
 import { authOptions } from "@/lib/auth";
@@ -14,10 +15,22 @@ export async function GET() {
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const integration = await prisma.integration.findUnique({
+  let integration = await prisma.integration.findUnique({
     where: { userId: session.user.id },
   });
+
+  // Every client gets a private BooSend webhook URL — mint the token lazily.
+  if (!integration?.webhookToken) {
+    const webhookToken = crypto.randomBytes(24).toString("base64url");
+    integration = await prisma.integration.upsert({
+      where: { userId: session.user.id },
+      update: { webhookToken },
+      create: { userId: session.user.id, webhookToken },
+    });
+  }
+
   return NextResponse.json({
+    webhookToken: integration.webhookToken,
     igToken: maskSecret(integration?.igTokenEnc),
     igUserId: integration?.igUserId ?? null,
     calendlyToken: maskSecret(integration?.calendlyTokenEnc),

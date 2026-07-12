@@ -13,9 +13,11 @@ refreshed automatically — alongside their BooSend AI-setter performance.
   views, post count, plus a 90-day follower trend chart.
 - **BooSend (AI appointment setter)** — DM conversations and leads captured,
   with day-over-day change and a trend chart, plus upcoming calls booked by
-  the agent (via Calendly, automatic). BooSend has no public API, so the DM
-  numbers are logged in seconds from the dashboard — by the client on their
-  own page, or by you for any client from `/admin`.
+  the agent (via Calendly, automatic). Counts update automatically through a
+  per-client **webhook**: each client gets a private URL in Settings and adds
+  it as a webhook action in their BooSend flows — every flow run ticks the
+  count. Manual adjustment (dashboard) and admin entry (`/admin`) remain as
+  fallbacks.
 - **Calendly** — every upcoming booked call: date, time, who booked, and a
   Join button for the meeting link.
 
@@ -106,11 +108,13 @@ Anywhere else, a crontab line works:
 
 ## Notes & limits
 
-- **BooSend stats are manual by design:** BooSend doesn't offer a public
-  API (as of mid-2026), so conversations/leads are logged by hand — one row
-  per day, editable all day, powering the tiles and charts. If BooSend ships
-  an API later, `src/lib/integrations/` is where an automatic client slots
-  in.
+- **BooSend counts arrive via webhook:** BooSend doesn't offer a public
+  data API (as of mid-2026), but its flow builder can call webhooks. Each
+  client's Settings page shows two private URLs
+  (`/api/hooks/boosend/<token>?event=conversation|lead`); pasted into the
+  right BooSend flows, they increment the day's counters automatically. The
+  token is unguessable and maps to exactly one client. Manual entry stays
+  available for corrections.
 - **Instagram tokens expire.** Long-lived tokens last ~60 days; when one
   expires the client's dashboard shows a clear "Connection issue" banner and
   you'll see a ⚠ next to them in `/admin`. Paste a fresh token in Settings
