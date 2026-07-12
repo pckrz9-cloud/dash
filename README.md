@@ -33,25 +33,31 @@ cron endpoint refreshes all clients in the background.
 - All pages/APIs sit behind auth middleware; only login, signup and the
   secret-protected cron endpoint are public.
 
-## Setup
+## Deploy in the browser (no terminal needed)
+
+1. **Database** — sign up free at [neon.tech](https://neon.tech), create a
+   project, copy the connection string.
+2. **Hosting** — sign up at [vercel.com](https://vercel.com) with GitHub,
+   *Add New Project*, import this repo, and add these environment variables
+   before deploying:
+   - `DATABASE_URL` — the Neon connection string
+   - `NEXTAUTH_SECRET` — any long random string
+     (grab one from https://generate-secret.vercel.app/32)
+   - `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` — your own login
+   - `CRON_SECRET` — another long random string
+3. **Deploy.** Database tables are created automatically during the build,
+   and your admin account is created automatically the first time you log
+   in with `ADMIN_EMAIL` + `ADMIN_PASSWORD`. The included `vercel.json`
+   schedules a daily background sync (raise the frequency on a paid Vercel
+   plan if you want).
+
+## Local development
 
 ```bash
-# 1. Install
 npm install
-
-# 2. Configure
-cp .env.example .env
-#    - set NEXTAUTH_SECRET   (openssl rand -base64 32)
-#    - set ENCRYPTION_KEY    (openssl rand -hex 32)
-#    - set ADMIN_EMAIL / ADMIN_PASSWORD (your own login)
-#    - set CRON_SECRET       (any random string)
-
-# 3. Create the database + your admin account
-npm run setup
-
-# 4. Run
-npm run dev        # development
-npm run build && npm start   # production
+cp .env.example .env   # fill in the same values as above
+npm run setup          # creates tables + admin account
+npm run dev            # http://localhost:3000
 ```
 
 ## Onboarding a client (the whole flow)
