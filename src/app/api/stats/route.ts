@@ -23,7 +23,7 @@ export async function GET() {
   }
 
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const [integration, snapshots, calls, boosendStats] = await Promise.all([
+  const [integration, snapshots, calls, manychatStats] = await Promise.all([
     prisma.integration.findUnique({ where: { userId } }),
     prisma.statSnapshot.findMany({
       where: { userId, capturedAt: { gte: since } },
@@ -34,7 +34,7 @@ export async function GET() {
       orderBy: { startTime: "asc" },
       take: 25,
     }),
-    prisma.boosendStat.findMany({
+    prisma.manychatStat.findMany({
       where: { userId, date: { gte: since } },
       orderBy: { date: "asc" },
     }),
@@ -46,15 +46,17 @@ export async function GET() {
   const previous =
     [...snapshots].reverse().find((s) => dayKey(s.capturedAt) !== latestDay) ?? null;
 
-  const bsLatest = boosendStats[boosendStats.length - 1] ?? null;
-  const bsPrevious = boosendStats[boosendStats.length - 2] ?? null;
+  const mcLatest = manychatStats[manychatStats.length - 1] ?? null;
+  const mcPrevious = manychatStats[manychatStats.length - 2] ?? null;
 
   return NextResponse.json({
     connected: {
+      manychat: Boolean(integration?.manychatKeyEnc),
       instagram: Boolean(integration?.igTokenEnc && integration?.igUserId),
       calendly: Boolean(integration?.calendlyTokenEnc),
     },
     errors: {
+      manychat: integration?.manychatError ?? null,
       instagram: integration?.instagramError ?? null,
       calendly: integration?.calendlyError ?? null,
     },
@@ -65,14 +67,15 @@ export async function GET() {
       capturedAt: s.capturedAt,
       igFollowers: s.igFollowers,
       igReachDay: s.igReachDay,
+      mcSubscribers: s.mcSubscribers,
     })),
-    boosend: {
-      latest: bsLatest,
-      previous: bsPrevious,
-      history: boosendStats.map((b) => ({
-        date: b.date,
-        conversations: b.conversations,
-        leads: b.leads,
+    manychat: {
+      latest: mcLatest,
+      previous: mcPrevious,
+      history: manychatStats.map((m) => ({
+        date: m.date,
+        conversations: m.conversations,
+        leads: m.leads,
       })),
     },
     calls,

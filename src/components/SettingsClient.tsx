@@ -5,11 +5,12 @@ import { useState } from "react";
 
 interface IntegrationInfo {
   webhookToken: string | null;
+  manychatKey: string | null;
   igToken: string | null;
   igUserId: string | null;
   calendlyToken: string | null;
   lastSyncAt: string | null;
-  errors: { instagram: string | null; calendly: string | null };
+  errors: { manychat: string | null; instagram: string | null; calendly: string | null };
 }
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -20,6 +21,7 @@ export default function SettingsClient() {
     fetcher
   );
   const [form, setForm] = useState({
+    manychatKey: "",
     igToken: "",
     igUserId: "",
     calendlyToken: "",
@@ -27,7 +29,7 @@ export default function SettingsClient() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function save(clear?: ("instagram" | "calendly")[]) {
+  async function save(clear?: ("manychat" | "instagram" | "calendly")[]) {
     setBusy(true);
     setMessage(null);
     const res = await fetch("/api/settings/integrations", {
@@ -49,7 +51,7 @@ export default function SettingsClient() {
         ? `Saved, but some connections failed — ${errs.join(" · ")}`
         : "Saved and synced ✓"
     );
-    setForm({ igToken: "", igUserId: "", calendlyToken: "" });
+    setForm({ manychatKey: "", igToken: "", igUserId: "", calendlyToken: "" });
     mutate();
   }
 
@@ -70,31 +72,55 @@ export default function SettingsClient() {
         </div>
       )}
 
-      <section className="card space-y-3">
+      <section className="card space-y-4">
         <header className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold">BooSend</h2>
+            <h2 className="font-semibold">ManyChat</h2>
             <p className="text-sm text-muted">
-              One-time setup, automatic forever: in BooSend&apos;s flow
-              builder, add a <em>Webhook</em> action to your automations and
-              paste the matching URL below. Every time the flow runs, your
-              dashboard counts it — no typing needed.
+              ManyChat → Settings → API → copy your API key. This pulls your
+              account name and contact total automatically.
             </p>
           </div>
-          <StatusPill saved={data?.webhookToken ?? null} error={null} />
+          <StatusPill saved={data?.manychatKey ?? null} error={data?.errors.manychat ?? null} />
         </header>
+        <input
+          className="input"
+          placeholder={
+            data?.manychatKey
+              ? `Saved (${data.manychatKey}) — paste to replace`
+              : "ManyChat API key"
+          }
+          value={form.manychatKey}
+          onChange={(e) => setForm((f) => ({ ...f, manychatKey: e.target.value }))}
+        />
+        {data?.manychatKey && (
+          <button onClick={() => save(["manychat"])} className="text-sm text-bad" disabled={busy}>
+            Disconnect ManyChat
+          </button>
+        )}
+
         {data?.webhookToken && (
-          <div className="space-y-2">
+          <div className="space-y-2 border-t border-hairline pt-4">
+            <p className="text-sm font-medium">
+              Track conversations &amp; leads automatically
+            </p>
+            <p className="text-sm text-muted">
+              One-time setup, automatic forever: in ManyChat&apos;s Flow
+              Builder, add an <em>External Request</em> action (Actions →
+              External Request, method POST) to the relevant flows and paste
+              the matching URL. Every time the flow runs, your dashboard counts
+              it — no typing needed.
+            </p>
             <WebhookUrl
-              label="New DM conversation → add this webhook to your conversation-start flow"
+              label="New DM conversation → add to the flow that starts a conversation"
               url={hookUrl(data.webhookToken, "conversation")}
             />
             <WebhookUrl
-              label="Lead captured → add this webhook to your lead-capture flow"
+              label="Lead captured → add to your lead-capture flow"
               url={hookUrl(data.webhookToken, "lead")}
             />
             <p className="text-xs text-muted">
-              Calls your BooSend agent books show up automatically through
+              Calls your ManyChat setter books show up automatically through
               Calendly below. You can also still adjust today&apos;s numbers by
               hand on the dashboard.
             </p>
@@ -166,7 +192,7 @@ export default function SettingsClient() {
 
 function hookUrl(token: string, event: "conversation" | "lead"): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  return `${origin}/api/hooks/boosend/${token}?event=${event}`;
+  return `${origin}/api/hooks/manychat/${token}?event=${event}`;
 }
 
 function WebhookUrl({ label, url }: { label: string; url: string }) {

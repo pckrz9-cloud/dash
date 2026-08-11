@@ -16,17 +16,19 @@ interface Snapshot {
   igProfileViewsDay: number | null;
   igAccountsEngagedDay: number | null;
   igUsername: string | null;
+  mcSubscribers: number | null;
+  mcPageName: string | null;
 }
 
-interface BoosendDay {
+interface ManychatDay {
   date: string;
   conversations: number | null;
   leads: number | null;
 }
 
 interface StatsResponse {
-  connected: { instagram: boolean; calendly: boolean };
-  errors: { instagram: string | null; calendly: string | null };
+  connected: { manychat: boolean; instagram: boolean; calendly: boolean };
+  errors: { manychat: string | null; instagram: string | null; calendly: string | null };
   lastSyncAt: string | null;
   latest: Snapshot | null;
   previous: Snapshot | null;
@@ -34,11 +36,12 @@ interface StatsResponse {
     capturedAt: string;
     igFollowers: number | null;
     igReachDay: number | null;
+    mcSubscribers: number | null;
   }[];
-  boosend: {
-    latest: BoosendDay | null;
-    previous: BoosendDay | null;
-    history: BoosendDay[];
+  manychat: {
+    latest: ManychatDay | null;
+    previous: ManychatDay | null;
+    history: ManychatDay[];
   };
   calls: Call[];
 }
@@ -66,11 +69,12 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
     return <p className="py-20 text-center text-sm text-muted">Loading your stats…</p>;
   }
 
-  const { connected, errors, latest, previous, history, boosend, calls, lastSyncAt } = data;
-  const nothingConnected = !connected.instagram && !connected.calendly;
+  const { connected, errors, latest, previous, history, manychat, calls, lastSyncAt } = data;
+  const nothingConnected =
+    !connected.manychat && !connected.instagram && !connected.calendly;
 
   const followerHistory = seriesFrom(history, "capturedAt", "igFollowers");
-  const conversationHistory = seriesFrom(boosend.history, "date", "conversations");
+  const conversationHistory = seriesFrom(manychat.history, "date", "conversations");
 
   return (
     <div className="space-y-6">
@@ -95,7 +99,7 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
         <div className="card border-series1">
           <p className="text-sm">
             <span className="font-semibold">Get set up:</span> connect your
-            Instagram and Calendly accounts in{" "}
+            ManyChat, Instagram and Calendly accounts in{" "}
             <Link href="/settings" className="font-semibold text-series1">
               Settings
             </Link>{" "}
@@ -104,10 +108,11 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
         </div>
       )}
 
-      {(errors.instagram || errors.calendly) && (
+      {(errors.manychat || errors.instagram || errors.calendly) && (
         <div className="card">
           <p className="text-sm font-semibold text-bad">⚠ Connection issues</p>
           <ul className="mt-1 space-y-1 text-sm text-ink-2">
+            {errors.manychat && <li>ManyChat: {errors.manychat}</li>}
             {errors.instagram && <li>Instagram: {errors.instagram}</li>}
             {errors.calendly && <li>Calendly: {errors.calendly}</li>}
           </ul>
@@ -151,30 +156,48 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          BooSend — AI appointment setter
+          ManyChat — AI appointment setter
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile
             label="DM conversations"
-            value={boosend.latest?.conversations}
-            delta={delta(boosend.latest?.conversations, boosend.previous?.conversations)}
-            hint="Auto via BooSend webhook"
+            value={manychat.latest?.conversations}
+            delta={delta(manychat.latest?.conversations, manychat.previous?.conversations)}
+            hint="Auto via ManyChat flow"
           />
           <StatTile
             label="Leads captured"
-            value={boosend.latest?.leads}
-            delta={delta(boosend.latest?.leads, boosend.previous?.leads)}
-            hint="Auto via BooSend webhook"
+            value={manychat.latest?.leads}
+            delta={delta(manychat.latest?.leads, manychat.previous?.leads)}
+            hint="Auto via ManyChat flow"
           />
           <StatTile
             label="Calls booked (upcoming)"
             value={connected.calendly ? calls.length : null}
             hint={connected.calendly ? "From Calendly, automatic" : "Connect Calendly in Settings"}
           />
-          <BoosendEntry
-            latest={boosend.latest}
-            onSaved={() => mutate()}
+          <StatTile
+            label="Contacts"
+            value={latest?.mcSubscribers}
+            delta={delta(latest?.mcSubscribers, previous?.mcSubscribers)}
+            hint={
+              connected.manychat
+                ? "From the ManyChat API"
+                : "Connect ManyChat in Settings"
+            }
           />
+        </div>
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <div className="card lg:col-span-2">
+            <p className="text-sm text-ink-2">Connected ManyChat account</p>
+            <p className="mt-1 truncate text-lg font-semibold">
+              {latest?.mcPageName ?? (connected.manychat ? "…" : "Not connected")}
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Your AI setter runs on this ManyChat account.
+            </p>
+          </div>
+          <ManychatEntry latest={manychat.latest} onSaved={() => mutate()} />
         </div>
       </section>
 
@@ -185,7 +208,7 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
           color="var(--series-1)"
         />
         <TrendChart
-          title="BooSend conversations over time"
+          title="ManyChat conversations over time"
           points={conversationHistory}
           color="var(--series-2)"
         />
@@ -196,13 +219,13 @@ export default function DashboardClient({ firstName }: { firstName: string }) {
   );
 }
 
-// Inline form to correct/override today's BooSend numbers. Day-to-day the
-// counts arrive automatically via the client's BooSend webhook (Settings).
-function BoosendEntry({
+// Inline form to correct/override today's ManyChat numbers. Day-to-day the
+// counts arrive automatically from the client's ManyChat flows (Settings).
+function ManychatEntry({
   latest,
   onSaved,
 }: {
-  latest: BoosendDay | null;
+  latest: ManychatDay | null;
   onSaved: () => void;
 }) {
   const [conversations, setConversations] = useState("");
@@ -217,7 +240,7 @@ function BoosendEntry({
     if (Object.keys(body).length === 0) return;
     setBusy(true);
     setSaved(false);
-    const res = await fetch("/api/boosend", {
+    const res = await fetch("/api/manychat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -236,7 +259,7 @@ function BoosendEntry({
 
   return (
     <div className="card">
-      <p className="text-sm text-ink-2">Adjust today&apos;s BooSend stats</p>
+      <p className="text-sm text-ink-2">Adjust today&apos;s ManyChat stats</p>
       <div className="mt-2 flex gap-2">
         <input
           type="number"
@@ -265,7 +288,7 @@ function BoosendEntry({
           ? "Saved ✓"
           : loggedToday
             ? "Updated today ✓"
-            : "Optional — counts are automatic once your BooSend webhook is set up in Settings"}
+            : "Optional — counts are automatic once your ManyChat flow is set up in Settings"}
       </p>
     </div>
   );

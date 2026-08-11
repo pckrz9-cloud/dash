@@ -15,11 +15,11 @@ model User {
   role         String   @default("CLIENT") // "ADMIN" | "CLIENT"
   createdAt    DateTime @default(now())
 
-  integration  Integration?
-  snapshots    StatSnapshot[]
-  calls        UpcomingCall[]
-  boosendStats BoosendStat[]
-  usedInvite   Invite?        @relation("UsedInvite")
+  integration   Integration?
+  snapshots     StatSnapshot[]
+  calls         UpcomingCall[]
+  manychatStats ManychatStat[]
+  usedInvite    Invite?        @relation("UsedInvite")
 }
 
 // One-time invite codes the agency hands to a client so they can create
@@ -40,14 +40,17 @@ model Integration {
   userId String @id
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  manychatKeyEnc   String?
   igTokenEnc       String?
   igUserId         String?
   calendlyTokenEnc String?
 
-  // Unguessable token identifying this client's inbound BooSend webhook URL
+  // Unguessable token identifying this client's inbound ManyChat webhook URL
+  // (used by ManyChat "External Request" actions inside their flows)
   webhookToken String? @unique
 
   lastSyncAt     DateTime?
+  manychatError  String?
   instagramError String?
   calendlyError  String?
 
@@ -71,12 +74,18 @@ model StatSnapshot {
   igAccountsEngagedDay Int?
   igUsername           String?
 
+  // ManyChat (from the ManyChat API)
+  mcSubscribers Int?
+  mcPageName    String?
+
   @@index([userId, capturedAt])
 }
 
-// BooSend has no public API, so its DM stats are logged manually (by the
-// client on their dashboard, or by the agency admin) — one row per day.
-model BoosendStat {
+// Per-day ManyChat conversation/lead counters. The ManyChat API exposes
+// account info but not per-day conversation volume, so these are driven by
+// "External Request" actions inside the client's ManyChat flows (see
+// /api/hooks/manychat/[token]) — with manual entry as a fallback.
+model ManychatStat {
   id            String   @id @default(cuid())
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)

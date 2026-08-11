@@ -13,8 +13,8 @@ const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
-// Admin-only: log a client's BooSend numbers on their behalf, so the agency
-// can keep dashboards fresh without asking clients to do data entry.
+// Admin-only: adjust a client's ManyChat conversation/lead numbers on their
+// behalf — a manual override for the automatic webhook counters.
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.role !== "ADMIN") {
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   if (conversations !== undefined) data.conversations = conversations;
   if (leads !== undefined) data.leads = leads;
 
-  const row = await prisma.boosendStat.upsert({
+  const row = await prisma.manychatStat.upsert({
     where: { userId_date: { userId, date: day } },
     update: data,
     create: { userId, date: day, ...data },

@@ -2,8 +2,8 @@
 
 A multi-tenant dashboard for your agency's clients. Each client creates their
 **own account** with an invite code you give them, connects their **own**
-Instagram and Calendly credentials, and sees **only their own stats** —
-refreshed automatically — alongside their BooSend AI-setter performance.
+ManyChat, Instagram and Calendly credentials, and sees **only their own
+stats** — refreshed automatically.
 
 ![Stack](https://img.shields.io/badge/stack-Next.js%2014%20·%20Prisma%20·%20NextAuth-blue)
 
@@ -11,13 +11,14 @@ refreshed automatically — alongside their BooSend AI-setter performance.
 
 - **Instagram** — followers (with day-over-day change), daily reach, profile
   views, post count, plus a 90-day follower trend chart.
-- **BooSend (AI appointment setter)** — DM conversations and leads captured,
-  with day-over-day change and a trend chart, plus upcoming calls booked by
-  the agent (via Calendly, automatic). Counts update automatically through a
-  per-client **webhook**: each client gets a private URL in Settings and adds
-  it as a webhook action in their BooSend flows — every flow run ticks the
-  count. Manual adjustment (dashboard) and admin entry (`/admin`) remain as
-  fallbacks.
+- **ManyChat (AI appointment setter)** — connected account name and contact
+  total straight from the ManyChat API, plus DM conversations and leads
+  captured with day-over-day change and a trend chart, and upcoming calls
+  booked by the setter (via Calendly). Conversation/lead counts update
+  automatically through a per-client **webhook**: each client gets a private
+  URL in Settings and adds it as an *External Request* action in their
+  ManyChat flows — every flow run ticks the count. Manual adjustment
+  (dashboard) and admin entry (`/admin`) remain as fallbacks.
 - **Calendly** — every upcoming booked call: date, time, who booked, and a
   Join button for the meeting link.
 
@@ -71,6 +72,9 @@ npm run dev            # http://localhost:3000
 2. Send the code to your client. They open `/signup`, enter it, and create
    their own account (email + password).
 3. They land on **Settings** and paste their keys:
+   - **ManyChat** — ManyChat → Settings → API → API key, then paste the two
+     webhook URLs from Settings into their ManyChat flows as *External
+     Request* actions.
    - **Instagram** — a long-lived Graph API token with `instagram_basic` +
      `instagram_manage_insights`, plus their IG user ID (requires an
      Instagram professional account linked to a Facebook Page — you'll
@@ -108,22 +112,24 @@ Anywhere else, a crontab line works:
 
 ## Notes & limits
 
-- **BooSend counts arrive via webhook:** BooSend doesn't offer a public
-  data API (as of mid-2026), but its flow builder can call webhooks. Each
-  client's Settings page shows two private URLs
-  (`/api/hooks/boosend/<token>?event=conversation|lead`); pasted into the
-  right BooSend flows, they increment the day's counters automatically. The
-  token is unguessable and maps to exactly one client. Manual entry stays
-  available for corrections.
+- **ManyChat contact totals:** ManyChat's public API exposes account info
+  but subscriber/contact totals only on some plans. The dashboard records the
+  total whenever the API provides it and says so on the tile when it doesn't
+  — everything else keeps working.
+- **Conversation counts arrive via webhook:** the ManyChat API doesn't expose
+  per-day conversation volume, but its Flow Builder has an *External Request*
+  action. Each client's Settings page shows two private URLs
+  (`/api/hooks/manychat/<token>?event=conversation|lead`); pasted into the
+  right flows, they increment the day's counters automatically. The token is
+  unguessable and maps to exactly one client. Manual entry stays available
+  for corrections.
 - **Instagram tokens expire.** Long-lived tokens last ~60 days; when one
   expires the client's dashboard shows a clear "Connection issue" banner and
   you'll see a ⚠ next to them in `/admin`. Paste a fresh token in Settings
   to fix.
-- **Database:** SQLite out of the box (`prisma/dev.db`). For hosted
-  deployments with a real database, switch the `provider` in
-  `prisma/schema.prisma` to `postgresql` and point `DATABASE_URL` at it —
-  no code changes needed. (Note: SQLite doesn't persist on serverless hosts
-  like Vercel, so use Postgres there.)
+- **Database:** Postgres (any provider — Neon's free tier is the easy
+  choice). Tables are created automatically during the build, so there is no
+  migration step to run by hand.
 
 ## Project layout
 
@@ -132,7 +138,7 @@ prisma/schema.prisma        # Users, invites, credentials, snapshots, calls
 src/lib/auth.ts             # NextAuth (credentials, JWT sessions, roles)
 src/lib/crypto.ts           # AES-256-GCM for API keys at rest
 src/lib/sync.ts             # Per-client sync engine (the tenant boundary)
-src/lib/integrations/       # Instagram / Calendly API clients
+src/lib/integrations/       # ManyChat / Instagram / Calendly API clients
 src/app/api/                # Session-scoped API routes
 src/app/(pages)             # /login /signup / (dashboard) /settings /admin
 src/components/             # Stat tiles, trend charts, calls list, forms

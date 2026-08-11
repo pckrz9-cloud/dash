@@ -4,16 +4,16 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 /**
- * Inbound webhook for BooSend automations. Each client gets a private,
+ * Inbound webhook for ManyChat flows. Each client gets a private,
  * unguessable URL (shown in Settings):
  *
- *   POST /api/hooks/boosend/<token>?event=conversation
- *   POST /api/hooks/boosend/<token>?event=lead
+ *   POST /api/hooks/manychat/<token>?event=conversation
+ *   POST /api/hooks/manychat/<token>?event=lead
  *
- * In BooSend's flow builder, add a webhook action pointing at the matching
- * URL — every time the flow runs, today's count ticks up automatically.
- * The token is the auth: it maps to exactly one client, so events can never
- * land on someone else's stats.
+ * In ManyChat's flow builder, add an "External Request" action pointing at
+ * the matching URL — every time the flow runs, today's count ticks up
+ * automatically. The token is the auth: it maps to exactly one client, so
+ * events can never land on someone else's stats.
  */
 async function handle(req: Request, token: string) {
   if (!token || token.length < 16) {
@@ -45,11 +45,11 @@ async function handle(req: Request, token: string) {
 
   // Read-then-write instead of a blind increment: the column is nullable
   // (manual entries may have set only one field) and null + 1 stays null.
-  const existing = await prisma.boosendStat.findUnique({
+  const existing = await prisma.manychatStat.findUnique({
     where: { userId_date: { userId: integration.userId, date: day } },
   });
   const next = ((existing?.[field] as number | null) ?? 0) + 1;
-  await prisma.boosendStat.upsert({
+  await prisma.manychatStat.upsert({
     where: { userId_date: { userId: integration.userId, date: day } },
     update: { [field]: next },
     create: { userId: integration.userId, date: day, [field]: 1 },

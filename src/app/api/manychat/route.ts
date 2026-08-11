@@ -12,8 +12,10 @@ const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // defaults to today
 });
 
-// Log/update the logged-in client's own BooSend numbers for a given day.
-// BooSend has no public API, so these are entered manually.
+// Manually adjust the logged-in client's own ManyChat conversation/lead
+// numbers for a given day. Day to day these arrive automatically from the
+// client's ManyChat flows (see /api/hooks/manychat/[token]); this is the
+// correction path.
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
   if (conversations !== undefined) data.conversations = conversations;
   if (leads !== undefined) data.leads = leads;
 
-  const row = await prisma.boosendStat.upsert({
+  const row = await prisma.manychatStat.upsert({
     where: { userId_date: { userId: session.user.id, date: day } },
     update: data,
     create: { userId: session.user.id, date: day, ...data },

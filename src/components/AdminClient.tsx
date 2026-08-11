@@ -18,7 +18,7 @@ interface ClientRow {
   email: string;
   createdAt: string;
   lastSyncAt: string | null;
-  connected: { instagram: boolean; calendly: boolean };
+  connected: { manychat: boolean; instagram: boolean; calendly: boolean };
   hasErrors: boolean;
 }
 
@@ -112,7 +112,7 @@ export default function AdminClient() {
                 <th className="px-4 py-2 font-medium">Client</th>
                 <th className="px-4 py-2 font-medium">Connections</th>
                 <th className="px-4 py-2 font-medium">Last sync</th>
-                <th className="px-4 py-2 font-medium">Log BooSend stats (today)</th>
+                <th className="px-4 py-2 font-medium">Adjust ManyChat stats (today)</th>
               </tr>
             </thead>
             <tbody>
@@ -123,6 +123,7 @@ export default function AdminClient() {
                     <p className="text-muted">{c.email}</p>
                   </td>
                   <td className="px-4 py-2">
+                    <ConnDot on={c.connected.manychat} label="ManyChat" />
                     <ConnDot on={c.connected.instagram} label="Instagram" />
                     <ConnDot on={c.connected.calendly} label="Calendly" />
                     {c.hasErrors && (
@@ -133,7 +134,7 @@ export default function AdminClient() {
                     {c.lastSyncAt ? new Date(c.lastSyncAt).toLocaleString() : "Never"}
                   </td>
                   <td className="px-4 py-2">
-                    <BoosendRowEntry userId={c.id} />
+                    <ManychatRowEntry userId={c.id} />
                   </td>
                 </tr>
               ))}
@@ -156,9 +157,9 @@ export default function AdminClient() {
   );
 }
 
-// BooSend has no public API — the agency can log a client's daily numbers
-// here so the client's dashboard stays fresh without them doing data entry.
-function BoosendRowEntry({ userId }: { userId: string }) {
+// Manual override for a client's automatic ManyChat counters — useful for
+// corrections, or if a flow was paused for a day.
+function ManychatRowEntry({ userId }: { userId: string }) {
   const [conversations, setConversations] = useState("");
   const [leads, setLeads] = useState("");
   const [busy, setBusy] = useState(false);
@@ -170,7 +171,7 @@ function BoosendRowEntry({ userId }: { userId: string }) {
     if (leads.trim() !== "") body.leads = Number(leads);
     if (body.conversations === undefined && body.leads === undefined) return;
     setBusy(true);
-    const res = await fetch("/api/admin/boosend", {
+    const res = await fetch("/api/admin/manychat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
