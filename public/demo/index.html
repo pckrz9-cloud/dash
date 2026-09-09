@@ -124,18 +124,6 @@ body{
 @keyframes blink{0%,60%,100%{opacity:.35; transform:translateY(0)}30%{opacity:1; transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){.bubble{animation:none}.typing i{animation:none;opacity:.7}}
 
-.suggest{
-  display:flex; gap:7px; padding:0 11px 9px; overflow-x:auto; flex:none;
-  scrollbar-width:none;
-}
-.suggest::-webkit-scrollbar{display:none}
-.suggest:empty{display:none}
-.sg{
-  flex:none; background:transparent; border:1px solid #363636; color:var(--ig-ink);
-  border-radius:16px; padding:6px 12px; font-size:13px; font-family:var(--font-phone);
-  cursor:pointer; white-space:nowrap; transition:background .15s, border-color .15s;
-}
-.sg:hover{background:#1c1c1c; border-color:#4a4a4a}
 
 .composer{
   border-top:1px solid var(--ig-line); padding:9px 11px 13px;
@@ -160,15 +148,10 @@ body{
   padding:15px 20px; text-align:center; color:var(--ig-ink-2); font-size:12.5px;
   border-top:1px solid var(--ig-line); line-height:1.55; flex:none;
 }
-.footline{
-  display:flex; align-items:center; gap:10px; font-size:11.5px; color:var(--ink-2);
-  letter-spacing:.02em; opacity:.8;
+.caption{
+  font-size:11.5px; color:var(--ink-2); text-align:center; letter-spacing:.02em;
+  margin:0; opacity:.75;
 }
-.footline button{
-  background:none; border:0; color:inherit; font:inherit; cursor:pointer;
-  text-decoration:underline; text-underline-offset:2px; padding:0; opacity:.85;
-}
-.footline button:hover{opacity:1}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
 
@@ -210,8 +193,6 @@ body{
         <div class="notice" id="startNotice">Send a message to start the conversation.</div>
       </div>
 
-      <div class="suggest" id="suggest"></div>
-
       <div class="composer" id="composer">
         <div class="inputpill">
           <label class="sr" for="msg">Message</label>
@@ -223,11 +204,7 @@ body{
     </div>
   </div>
 
-  <p class="footline">
-    <span>Demo conversation</span>
-    <span aria-hidden="true">&middot;</span>
-    <button type="button" id="restart">Start over</button>
-  </p>
+  <p class="caption">Demo conversation</p>
 </div>
 
 <script>
@@ -236,13 +213,14 @@ body{
 
 /* ============================================================
    Per-person links
-     ?name=Maya%20Ellis&biz=online%20fitness%20coaching
-   Keys: name, handle, biz (or niche), followers, note
+     ?name=Maya%20Ellis&biz=online%20fitness%20coaching&followers=6200
+   Keys: name, handle, biz (or niche), followers, views, bio, note
+   With none, the setter opens cold.
    ============================================================ */
 
-var KEYS = ["name","handle","biz","niche","followers","note"];
+var KEYS = ["name","handle","biz","niche","followers","views","bio","note"];
 
-function readLead(){
+function readParams(){
   var out = {};
   [window.location.search, window.location.hash].forEach(function(src){
     var s = String(src || "").replace(/^[?#]/, "");
@@ -262,166 +240,242 @@ function readLead(){
   return out;
 }
 
-var L = readLead();
-var FIRST = L.name ? L.name.split(/\s+/)[0] : "";
-var BIZ = L.biz || L.niche || "";
+var P = readParams();
+var FIRST = P.name ? P.name.split(/\s+/)[0] : "";
 var CALENDLY = "https://calendly.com/charlie-p-eighteen09marketing/eighteen09-meeting";
 
 /* ============================================================
-   THE SETTER SCRIPT
+   THE SETTER
 
-   Rules this follows:
-     - ONE message per turn. Never two bubbles, never a follow up
-       before the lead has replied.
-     - one question per message, always open ended
+   Rules from the ai setter chxrlie workflow:
+     - ONE message per turn, one question in it, always open ended
      - acknowledge in a few short words, never parrot back
-     - short and direct, casual slang, no emojis, no "haha",
+     - short, direct, casual slang, no emojis, no "haha",
        no em dashes, no stating the obvious
+     - an insight only when their answer reveals a pattern
      - clarify a vague answer before moving on
      - if they dodge, re-ask with "lmk on ..."
      - never pitch before the pain and the goal are on the table
+     - never give a price, sell the meeting not the offer
      - the name is used in the first message only
+     - rude, nonsense or existing client hands over to a human
    ============================================================ */
 
-function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+/* Non repeating picker, so nothing is said twice in a row. */
+function rot(list){
+  var pool = [];
+  return function(){
+    if (!pool.length) pool = list.slice();
+    return pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+  };
+}
 
-var ACK      = ["got it","makes sense","gotcha","sounds good"];
-var ACK_WARM = ["love that","respect","solid target"];
+var ack     = rot(["got it","makes sense","gotcha","sounds good","yeah makes sense","fair enough"]);
+var ackWarm = rot(["love that","respect","solid target","thats a good one"]);
+var soft    = rot(["all good","no worries","for sure","totally get that"]);
 
-/* An insight only when their answer reveals a pattern.
-   The plan says not to force one into every response. */
-var INSIGHTS = [
-  { test:/\b(dm|dms|messages|inbox|replies|replying)\b/i,
-    line:"most people we work with were drowning in dms before systemising it" },
-  { test:/\b(consistent|consistency|inconsistent|up and down|dry|quiet)\b/i,
-    line:"thats usually the biggest bottleneck honestly" },
-  { test:/\b(time|busy|hours|manual|manually|admin)\b/i,
-    line:"the manual side eats more time than people expect" },
-  { test:/\b(cold|ghost|ghosted|go cold|drop off|stop replying)\b/i,
-    line:"leads going cold is almost always a speed thing" }
+/* ---- what they do, remembered and reused in the pitch ---- */
+var NICHES = [
+  {re:/\b(smma|social media marketing)\b/i,                          n:"smma owner"},
+  {re:/\b(agency|agencies)\b/i,                                      n:"agency owner"},
+  {re:/\b(paid ads|meta ads|facebook ads|google ads|media buy|ppc)\b/i, n:"ads guy"},
+  {re:/\b(ecom|e-?comm|shopify|dropship|clothing brand|my store)\b/i, n:"ecom brand"},
+  {re:/\b(fitness|gym|personal train|\bpt\b|nutrition|weight loss)\b/i, n:"fitness coach"},
+  {re:/\b(edit|editor|editing|videographer|thumbnail)\b/i,            n:"editor"},
+  {re:/\b(course|info product|digital product|cohort)\b/i,            n:"course creator"},
+  {re:/\b(real estate|realtor|property|lettings)\b/i,                 n:"realtor"},
+  {re:/\b(saas|software|my app)\b/i,                                  n:"saas founder"},
+  {re:/\b(consult|consultancy|advisory)\b/i,                          n:"consultant"},
+  {re:/\b(freelanc|contractor)\b/i,                                   n:"freelancer"},
+  {re:/\b(coach|coaching|mentor|mentoring)\b/i,                       n:"coach"},
+  {re:/\b(creator|influencer|personal brand|content)\b/i,             n:"creator"}
 ];
 
+function findNiche(t){
+  for (var i = 0; i < NICHES.length; i++) if (NICHES[i].re.test(t)) return NICHES[i].n;
+  return "";
+}
+
+/* ---- what hurts, which decides the insight ---- */
+var PAINS = [
+  { re:/\b(dms?|messages?|inbox|replying|reply|keep up|keeping up)\b/i,
+    insight:"most people we work with were drowning in dms before they systemised it" },
+  { re:/\b(cold|ghost|ghosted|drop off|stop replying|no show|noshow|flake)\b/i,
+    insight:"leads going cold is almost always a speed thing" },
+  { re:/\b(convert|conversion|closing|close rate|book|booking|not booking)\b/i,
+    insight:"getting them on the call is usually the leak, not the pitch" },
+  { re:/\b(consistent|consistency|inconsistent|up and down|some months|feast|famine)\b/i,
+    insight:"the up and down thing is nearly always a pipeline issue not a skill issue" },
+  { re:/\b(fulfil|fulfill|deliver|delivery|capacity|onboarding|servicing)\b/i,
+    insight:"that usually comes from working with people who arent ur dream clients" },
+  { re:/\b(time|busy|hours|manual|manually|admin|burnt out|burnout|juggl)\b/i,
+    insight:"the manual side eats way more time than people expect" },
+  { re:/\b(leads?|enquir|inquir|prospects?|nobody|no one|dead|dry|quiet)\b/i,
+    insight:"thats usually the biggest bottleneck honestly" },
+  { re:/\b(charge|undercharg|pricing|cheap|discount)\b/i,
+    insight:"pricing gets a lot easier when u have more demand than slots" }
+];
+
+var usedInsights = {};
 function insight(t){
-  for (var i = 0; i < INSIGHTS.length; i++){
-    if (INSIGHTS[i].test.test(t)) return INSIGHTS[i].line + ". ";
+  for (var i = 0; i < PAINS.length; i++){
+    if (PAINS[i].re.test(t) && !usedInsights[i]){
+      usedInsights[i] = true;
+      return PAINS[i].insight + ". ";
+    }
   }
   return "";
 }
 
-/* Each step is one message asking one question. `label` is how the
-   question gets re-asked if the lead skips it. */
+/* ---- their goal, reused in the pitch the way the plan asks ---- */
+function shortGoal(t){
+  var m = t.match(/\b\d[\d,.]*\s*k\b(?:\s*(?:a|per)?\s*month|\s*\/\s*mo|\s*months?)?/i)
+       || t.match(/\b(?:double|triple|2x|3x|5x|10x)\s+[a-z ]{0,18}/i)
+       || t.match(/\b\d+\s*(?:more\s*)?(?:clients?|customers?|students?|sales)\b/i);
+  return m ? m[0].trim().replace(/\s+/g, " ").toLowerCase() : "";
+}
+
+var mem = { niche: P.biz || P.niche || "", goal: "" };
+
+/* ============================================================
+   STEPS - each is one message with one question
+   ============================================================ */
+
+var askSituation = rot([
+  "whats the main thing u got going on rn",
+  "whats ur main focus at the min",
+  "what are u building rn"
+]);
+var askClarify = rot([
+  "wdym by that exactly",
+  "wheres the bottleneck, getting clients or something else",
+  "whats making it hard specifically"
+]);
+var askApproach = rot([
+  "what are u currently doing to get clients",
+  "hows client acquisition been going for u",
+  "wheres most of ur business coming from atm"
+]);
+var askGoal = rot([
+  "where are u looking to take things in the next 90 days",
+  "what kind of growth are u aiming for",
+  "where do u wanna be in a few months"
+]);
+var askGap = rot([
+  "be real with me, how close are u to that rn",
+  "how far off are u from that",
+  "honestly, how close are u to that"
+]);
+
 var STEP = {
   situation: {
     ask: function(){
-      var q = BIZ
-        ? "hows the " + BIZ + " side of things going rn"
-        : "whats the main thing u got going on rn";
+      var q = mem.niche ? "hows the " + mem.niche + " side of things going rn" : askSituation();
       return (FIRST ? "yo " + FIRST + ", " : "yo, ") + q;
     },
-    label: "whats going on with things rn",
-    chips: ["running a coaching business","i do paid ads for ecom brands","building my personal brand"]
+    label: "whats going on with things rn"
   },
-  clarify: {
-    ask: function(){
-      return pick([
-        "wdym by that exactly",
-        "wheres the bottleneck, getting clients or something else",
-        "whats making it hard specifically"
-      ]);
-    },
-    label: "wheres the bottleneck",
-    chips: ["getting clients is the hard part","i get leads but they dont book","fulfilment eats all my time"]
-  },
-  approach: {
-    ask: function(t){
-      return pick(ACK) + ", " + insight(t) + "what are u currently doing to get clients";
-    },
-    label: "what ur doing to get clients atm",
-    chips: ["posting reels and hoping","cold dms","referrals mostly"]
-  },
-  goal: {
-    ask: function(t){
-      return pick(ACK) + ", " + insight(t) + "where are u looking to take things in the next 90 days";
-    },
-    label: "where ur trying to take things",
-    chips: ["double my client count","20k months","10 more clients"]
-  },
-  gap: {
-    ask: function(){
-      return pick(ACK_WARM) + ", be real with me, how close are u to that rn";
-    },
-    label: "how close u are to that",
-    chips: ["not close at all","about halfway","pretty far off"]
-  },
+  clarify:  { ask: function(){ return askClarify(); },
+              label: "wheres the bottleneck" },
+  approach: { ask: function(t){ return ack() + ", " + insight(t) + askApproach(); },
+              label: "what ur doing to get clients atm" },
+  goal:     { ask: function(t){ return ack() + ", " + insight(t) + askGoal(); },
+              label: "where ur trying to take things" },
+  gap:      { ask: function(){ return ackWarm() + ", " + askGap(); },
+              label: "how close u are to that" },
   pitch: {
     ask: function(){
-      var who = BIZ ? "another " + BIZ : "someone in the same spot";
-      return "get that a lot, just helped " + who
-        + " go from there to a calendar that fills itself. would u be down for a quick call this week";
+      var who  = mem.niche ? "another " + mem.niche : "someone in the same spot";
+      var goal = mem.goal ? " help u hit that " + mem.goal : " close that gap";
+      return "get that a lot, just helped " + who + " go from there to a calendar that fills itself. think we could"
+           + goal + " too, would u be down for a quick call this week";
     },
-    label: "whether ur down for a quick call",
-    chips: ["yeah im down","whats the price","can u tell me more first"]
+    label: "whether ur down for a quick call"
   }
 };
 
 var ORDER = ["situation","approach","goal","gap","pitch"];
-
 var BOOKED = "bettt, grab whatever time works for u " + CALENDLY;
 var CLOSE  = " would it make sense to hop on for 15 min and find out";
 
-/* Objection handlers, from the workflow's Knowledge block. */
-var OBJECTIONS = [
-  {
-    id:"ai",
-    test:/\b(is this (an?\s*)?(ai|bot|automated|real)|are (you|u) (an?\s*)?(ai|bot|real|human)|a bot\b|chatgpt|automated|u sound like ai|you sound like ai)/i,
-    reply:function(){ return "of course, we teach ig sales with ai. would u really expect me to sit here myself ^^"; },
-    toBooking:false
-  },
-  {
-    id:"price",
-    test:/(price|pricing|how much|what.*cost|the cost|charge|ur fee|your fee|expensive|\bgbp\b|[£$]\s*\d)/i,
+/* ============================================================
+   OBJECTIONS - interrupt without losing the question we're on
+   ============================================================ */
+
+var OBJ = [
+  { id:"rude",
+    re:/\b(fuck|shit|piss off|scam|scammer|stupid|idiot|dickhead|wanker|shut up|waste of time|bullshit)\b/i,
+    reply:function(){ return "no worries, ill leave u to it"; },
+    ends:true },
+
+  { id:"client",
+    re:/(already (a )?(client|working with)|im (a )?client|we already work together|ur my)/i,
+    reply:function(){ return "ah my bad, ill get this over to charlie directly"; },
+    ends:true },
+
+  { id:"ai",
+    re:/\b(is this (an?\s*)?(ai|bot|automated|real)|are (you|u) (an?\s*)?(ai|bot|real|human)|a bot\b|chatgpt|automated|u sound like|you sound like)/i,
+    reply:function(){ return "of course, we teach ig sales with ai. would u really expect me to sit here myself ^^"; } },
+
+  { id:"price",
+    re:/(price|pricing|how much|what.*cost|the cost|charge|ur fee|your fee|expensive|afford|\bgbp\b|[£$]\s*\d)/i,
     reply:function(n){
       return n > 1
         ? "still gotta be the call for that one, itd be a made up number without knowing ur situation"
         : "price depends on ur situation and goals, thats why we need to chat first";
-    },
-    toBooking:true
-  },
-  {
-    id:"info",
-    test:/(tell me more|more info|more about|how does it work|how it works|what is it|what do (u|you) (do|offer)|explain|whats the system|what.s the system|send.*info|more detail)/i,
+    }, book:true },
+
+  { id:"proof",
+    re:/(proof|case stud|results|testimonial|examples?|screenshots?|who have (u|you) work|any wins)/i,
+    reply:function(){ return "yeah we've had clients do up to 400k a month with this, easier to show u properly on a call than paste screenshots"; },
+    book:true },
+
+  { id:"info",
+    re:/(tell me more|more info|more about|how does it work|how it works|what is it|what do (u|you) (do|offer)|explain|whats the system|what.s the system|send.*info|more detail|whats the offer)/i,
     reply:function(n){
       return n > 1
         ? "genuinely quicker on a call, 15 min and ull see exactly how itd run on ur account"
-        : "tough to explain properly over text without knowing ur situation, thats why a quick call makes way more sense";
-    },
-    toBooking:true
-  },
-  {
-    id:"think",
-    test:/(think about it|get back to (u|you)|ill think|i.ll think|maybe later|not sure yet|let me think|need to think|sleep on it)/i,
-    reply:function(){
-      return "for sure, totally understand. its just a quick call to see IF this could even work for u, no pressure";
-    },
-    toBooking:true
-  },
-  {
-    id:"time",
-    test:/(no time|too busy|dont have time|don.t have time|havent got time|haven.t got time|busy (rn|right now|atm)|swamped|snowed under)/i,
-    reply:function(){
-      return "totally get it, its literally 15 min and i just wanna see if i can help at all";
-    },
-    toBooking:true
-  },
-  {
-    id:"nooffer",
-    test:/(dont sell|don.t sell|nothing to sell|no offer|no product|no service|not selling|just starting|havent started|haven.t started|dont have (a )?(product|offer|service))/i,
-    reply:function(){
-      return "gotchu, thats where most people start. ill send u the first product formula, it walks u through building an offer worth selling, and come back to me whenever ur up and running";
-    },
-    toBooking:false,
-    ends:true
-  }
+        : "basically an ai setter that lives in ur dms, qualifies people and books them straight onto ur calendar. tough to explain the rest over text without knowing ur setup";
+    }, book:true },
+
+  { id:"dfy",
+    re:/(done for me|do i have to|how much work|hands off|do i need to|set it up for me|who builds)/i,
+    reply:function(){ return "we build and run the whole thing for u, ur only job is turning up to the calls it books"; } },
+
+  { id:"howlong",
+    re:/(how long|how quick|when would|how fast|time frame|timeframe|take to set|go live)/i,
+    reply:function(){ return "usually live on ur account within a week or so, depends how ur dms are set up"; } },
+
+  { id:"platform",
+    re:/(tiktok|whatsapp|email|linkedin|youtube|facebook|twitter|only instagram|other platforms?)/i,
+    reply:function(){ return "instagram dms is where we get the best numbers by a mile, thats what we focus on"; } },
+
+  { id:"fit",
+    re:/(work for (my|me)|does it work (for|with)|would it work|suit my|my niche|my industry|specific to)/i,
+    reply:function(){ return "works anywhere u have people landing in ur dms, the qualifying just gets tuned to what ur selling"; } },
+
+  { id:"have",
+    re:/(already have|got (a|an) (setter|system|agency|va)|we do this|in house|doing this already)/i,
+    reply:function(){ return "nice, most people who say that are still losing the ones that come in overnight. hows urs handling those"; } },
+
+  { id:"who",
+    re:/(who are (u|you)|how did (u|you) find|do i know (u|you)|where did (u|you) get|why are (u|you) messaging)/i,
+    reply:function(){ return "charlie, i run eighteen09, we put ai setters into creator accounts. came across ur page and figured id reach out"; } },
+
+  { id:"think",
+    re:/(think about it|get back to (u|you)|ill think|i.ll think|maybe later|not sure yet|let me think|need to think|sleep on it)/i,
+    reply:function(){ return "for sure, totally understand. its just a quick call to see IF this could even work for u, no pressure"; },
+    book:true },
+
+  { id:"time",
+    re:/(no time|too busy|dont have time|don.t have time|havent got time|haven.t got time|busy (rn|right now|atm)|swamped|snowed under)/i,
+    reply:function(){ return "totally get it, its literally 15 min and i just wanna see if i can help at all"; },
+    book:true },
+
+  { id:"nooffer",
+    re:/(dont sell|don.t sell|nothing to sell|no offer|no product|no service|not selling|just starting|havent started|haven.t started|dont have (a )?(product|offer|service))/i,
+    reply:function(){ return "gotchu, thats where most people start. ill send u the first product formula, it walks u through building an offer worth selling, and come back to me whenever ur up and running"; },
+    ends:true }
 ];
 
 /* ============================================================
@@ -430,10 +484,10 @@ var OBJECTIONS = [
 
 var asked = null, clarified = false, pushedGap = false;
 var locked = false, busy = false, started = false, done = false, awaitingBook = false;
-var seen = {};
+var seen = {}, junk = 0;
 
 var $ = function(id){ return document.getElementById(id); };
-var thread = $("thread"), msg = $("msg"), sendBtn = $("send"), suggest = $("suggest");
+var thread = $("thread"), msg = $("msg"), sendBtn = $("send");
 
 function esc(s){
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -453,7 +507,6 @@ function tick(){
 }
 tick(); setInterval(tick, 20000);
 
-/* ---------- thread ---------- */
 function addBubble(side, text){
   var row = document.createElement("div");
   row.className = "row " + side + " gap";
@@ -481,55 +534,35 @@ function showTyping(){
   thread.appendChild(row);
   scroll();
 }
-function hideTyping(){
-  var t = $("typing");
-  if (t) t.remove();
-}
-function setChips(list){
-  suggest.innerHTML = "";
-  if (!list || !list.length || locked || done) return;
-  list.forEach(function(t){
-    var b = document.createElement("button");
-    b.type = "button";
-    b.className = "sg";
-    b.textContent = t;
-    b.addEventListener("click", function(){
-      if (busy || locked) return;
-      msg.value = t;
-      send();
-    });
-    suggest.appendChild(b);
-  });
-}
-function setBusy(v){
-  busy = v;
-  sendBtn.disabled = v || locked;
-}
+function hideTyping(){ var t = $("typing"); if (t) t.remove(); }
+function setBusy(v){ busy = v; sendBtn.disabled = v || locked; }
 
 /* ============================================================
    ENGINE - every branch returns exactly one message
    ============================================================ */
 
-var YES = /\b(yes|yea+h?|yep|yup|sure|ok|okay|alright|deal|im down|i.m down|lets do it|let.s do it|go on|why not|sounds good|100|course|def|sounds great)\b/i;
+var YES = /\b(yes|yea+h?|yep|yup|sure|ok|okay|alright|deal|im down|i.m down|lets do it|let.s do it|go on|why not|sounds good|sounds great|100|course|def|sign me up)\b/i;
 var NO  = /\b(no|nah|nope|not really|not right now|not interested|im good|i.m good|no thanks|pass|not for me)\b/i;
-var GREET_ONLY = /^\s*(hey+|hi+|hello+|yo+|sup|wassup|what.?s up|morning|evening|hola)[\s!.,?]*$/i;
+var GREET = /^\s*(hey+|hi+|hello+|yo+|sup|wassup|what.?s up|morning|evening|hola)[\s!.,?]*$/i;
 
 function isVague(t){
   var s = t.trim();
   if (/\d/.test(s)) return false;
-  if (/^(not much|nothing|idk|dunno|not sure|the usual|this and that|stuff|a bit of everything)\b/i.test(s)) return true;
+  if (/^(not much|nothing|idk|dunno|not sure|the usual|this and that|stuff|a bit of everything|meh)\b/i.test(s)) return true;
   return s.split(/\s+/).length <= 3;
 }
+function isJunk(t){
+  var s = t.trim();
+  return s.length > 1 && !/[aeiou]/i.test(s) && /^[a-z]+$/i.test(s);
+}
 function isQuestion(t){
-  return /\?/.test(t) || /^\s*(what|how|who|why|when|where|can (u|you)|do (u|you)|did (u|you)|is (it|this)|are (u|you)|whats|what.s|hows|how.s)\b/i.test(t);
+  return /\?/.test(t) || /^\s*(what|how|who|why|when|where|can (u|you)|do (u|you)|did (u|you)|is (it|this)|are (u|you)|whats|what.s|hows|how.s|would)\b/i.test(t);
 }
 
-/* Re-ask the question they skipped, in the workflow's own phrasing. */
 function reask(){
   var k = asked && STEP[asked] ? asked : "situation";
   return " lmk on " + STEP[k].label + " tho";
 }
-
 function advance(t){
   var next = ORDER[ORDER.indexOf(asked) + 1];
   asked = next;
@@ -542,55 +575,52 @@ function reply(text){
 
   if (done) return "already got u down, speak on the call";
 
+  // Remember what they do and what they want, for the pitch.
+  if (!mem.niche) mem.niche = findNiche(t);
+  if (asked === "goal" && !mem.goal) mem.goal = shortGoal(t);
+
   // First contact. One question, name used here and nowhere else.
-  if (asked === null){
-    asked = "situation";
-    return STEP.situation.ask();
+  if (asked === null){ asked = "situation"; return STEP.situation.ask(); }
+
+  // Nonsense repeatedly hands over, per the workflow's handover rules.
+  if (isJunk(t)){
+    junk++;
+    if (junk >= 2){ locked = true; return "cant really follow that, ill get charlie to pick this up"; }
+    return "not sure i follow." + reask();
   }
 
-  // Objections interrupt without losing the question we were on.
-  for (var i = 0; i < OBJECTIONS.length; i++){
-    var o = OBJECTIONS[i];
-    if (o.test.test(t)){
+  for (var i = 0; i < OBJ.length; i++){
+    var o = OBJ[i];
+    if (o.re.test(t)){
       seen[o.id] = (seen[o.id] || 0) + 1;
       var out = o.reply(seen[o.id]);
       if (o.ends){ locked = true; return out; }
       // Never jump to the pitch before the pain and the goal are on the table.
       var qualified = ORDER.indexOf(asked) >= ORDER.indexOf("gap");
-      if (o.toBooking && qualified){
-        awaitingBook = true;
-        return out + "." + CLOSE;
-      }
+      if (o.book && qualified){ awaitingBook = true; return out + "." + CLOSE; }
+      if (o.book) return out + "." + reask();
       return out + "." + reask();
     }
   }
 
-  // After the ask, a yes books it and a no exits gracefully.
   if (awaitingBook){
     if (YES.test(t) && !NO.test(t)){ done = true; return BOOKED; }
     if (NO.test(t)){
       locked = true;
-      return "all good, no pressure at all. just lmk whenever u wanna look at it";
+      return soft() + ", no pressure at all. just lmk whenever u wanna look at it";
     }
     if (isQuestion(t)) return "we can def get into that on the call." + reask();
-    return "no worries either way." + reask();
+    return soft() + "." + reask();
   }
 
-  // They asked something back instead of answering. Acknowledge, then re-ask.
-  if (isQuestion(t) && !GREET_ONLY.test(t)){
-    return "we can def get into that." + reask();
-  }
+  if (isQuestion(t) && !GREET.test(t)) return "we can def get into that." + reask();
 
   // Step 1.1 says clarify a vague answer before moving on.
-  if (asked === "situation" && !clarified && (isVague(t) || GREET_ONLY.test(t))){
-    clarified = true;
-    asked = "clarify";
+  if (asked === "situation" && !clarified && (isVague(t) || GREET.test(t))){
+    clarified = true; asked = "clarify";
     return STEP.clarify.ask();
   }
-  if (asked === "clarify"){
-    asked = "situation";
-    return advance(t);
-  }
+  if (asked === "clarify"){ asked = "situation"; return advance(t); }
 
   // Don't settle for a surface level answer on the gap.
   if (asked === "gap" && isVague(t) && !pushedGap){
@@ -599,13 +629,6 @@ function reply(text){
   }
 
   return advance(t);
-}
-
-function chipsNow(){
-  if (done || locked) return [];
-  if (awaitingBook) return STEP.pitch.chips;
-  if (asked && STEP[asked]) return STEP[asked].chips;
-  return [];
 }
 
 /* ---------- send ---------- */
@@ -627,7 +650,6 @@ async function send(){
   msg.value = "";
   msg.style.height = "auto";
   setBusy(true);
-  setChips([]);
 
   addBubble("me", text);
 
@@ -639,7 +661,7 @@ async function send(){
   var out = reply(text).replace(/\s+/g, " ").trim();
 
   showTyping();
-  await sleep(Math.min(2200, 600 + out.length * 18));
+  await sleep(Math.min(2200, 620 + out.length * 17));
   hideTyping();
   addBubble("them", out);
 
@@ -647,63 +669,22 @@ async function send(){
     var c = $("composer");
     c.className = "locked";
     c.textContent = "Conversation paused.";
-    suggest.innerHTML = "";
-  } else {
-    setChips(chipsNow());
   }
 
   setBusy(false);
   if (!locked) msg.focus();
 }
 
-/* ---------- restart ---------- */
-var OPENERS = ["hey","saw ur post about the ai setter","hows it going"];
-
-function restart(){
-  asked = null; clarified = false; pushedGap = false;
-  locked = false; busy = false; started = false; done = false; awaitingBook = false;
-  seen = {};
-
-  var c = $("composer");
-  if (c.className === "locked"){
-    c.className = "composer";
-    c.innerHTML = '<div class="inputpill"><label class="sr" for="msg">Message</label>'
-      + '<textarea id="msg" rows="1" placeholder="Message..." autocomplete="off"></textarea></div>'
-      + '<button id="send" type="button">Send</button>';
-    msg = $("msg"); sendBtn = $("send");
-    wire();
-  }
-
-  thread.innerHTML =
-    '<div class="intro">'
-    + '<div class="bigav">CJ</div>'
-    + '<div class="bigname">Chxrlie</div>'
-    + '<div class="bighandle">chxrliejp &middot; Instagram</div>'
-    + '<div class="meta">You follow each other on Instagram</div>'
-    + '</div>'
-    + '<div class="notice" id="startNotice">Send a message to start the conversation.</div>';
-
-  msg.value = "";
-  setChips(OPENERS);
-  setBusy(false);
-}
-
 /* ---------- wiring ---------- */
-function wire(){
-  msg.addEventListener("input", function(){
-    msg.style.height = "auto";
-    msg.style.height = Math.min(88, msg.scrollHeight) + "px";
-  });
-  msg.addEventListener("keydown", function(e){
-    if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); }
-  });
-  sendBtn.addEventListener("click", send);
-}
-
-wire();
-$("restart").addEventListener("click", restart);
+msg.addEventListener("input", function(){
+  msg.style.height = "auto";
+  msg.style.height = Math.min(88, msg.scrollHeight) + "px";
+});
+msg.addEventListener("keydown", function(e){
+  if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); }
+});
+sendBtn.addEventListener("click", send);
 msg.value = "";
-setChips(OPENERS);
 
 })();
 </script>

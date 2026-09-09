@@ -30,15 +30,26 @@ works their niche into the opener and the social proof line.
 
 The lead types whatever they want. The script follows the live setter's flow:
 
-1. Current situation / pain
-2. Goal for the next 90 days
-3. The gap between the two
-4. Pitch the call, then send the Calendly link
+1. Current situation, with a clarifying question first if their answer is vague
+2. What they're currently doing to get clients
+3. Goal for the next 90 days
+4. The gap between the two
+5. Pitch the call, then send the Calendly link
 
-Objections interrupt at any point without losing the thread — price, "tell me
-more", "I'll think about it", "no time", "is this AI", and the no-offer branch
-that routes to the First Product Formula. Suggested replies sit above the
-composer so a prospect can tap through the whole thing on a phone.
+It reads what they type as it goes. It picks up their niche from thirteen
+patterns (coach, agency, ads, ecom, editor, course, realtor, saas, and so on)
+and reuses it in the pitch's social proof. It picks up their goal ("20k months",
+"double my clients") and puts it in the ask. Insights only fire when the answer
+matches a known pain, and never twice in one conversation.
+
+Fifteen objection branches interrupt without losing the thread: price, proof,
+what-is-it, done-for-you, how-long, other platforms, niche fit, already-have-one,
+who-are-you, think-about-it, no-time, is-this-AI, plus the no-offer branch to the
+First Product Formula. Rude messages, repeated nonsense and existing clients hand
+over to a human, matching the workflow's own handover rules.
+
+Objections raised before the pain and the goal are established get answered and
+returned to the open question, so it never pitches early.
 
 ## Editing the words
 
