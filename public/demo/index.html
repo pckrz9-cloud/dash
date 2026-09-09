@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chxrlie &middot; Eighteen09</title>
+<meta name="description" content="See the AI setter handle a real conversation.">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="Chxrlie &middot; Eighteen09">
+<meta property="og:description" content="See the AI setter handle a real conversation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ground:#0B0D12; --ground-2:#141821; --ink-2:#8A94A8; --rule:#232B3A;
+  --ig-bg:#000000; --ig-line:#262626; --ig-in:#262626;
+  --ig-out-a:#4F5BD5; --ig-out-b:#D62976;
+  --ig-ink:#FAFAFA; --ig-ink-2:#A8A8A8;
+  --shadow:0 30px 80px -28px rgba(0,0,0,.75);
+  --font-ui:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-phone:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --ground:#E9EAEF; --ground-2:#F7F8FA; --ink-2:#6B7488; --rule:#D8DBE3;
+    --shadow:0 30px 70px -30px rgba(20,26,40,.45);
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:radial-gradient(120% 80% at 50% 0%, var(--ground-2) 0%, var(--ground) 62%), var(--ground);
+  color:var(--ink-2);
+  font-family:var(--font-ui); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{
+  min-height:100%;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; padding-inline:20px; padding-block:24px;
+}
+:focus-visible{outline:2px solid #3797F0; outline-offset:3px; border-radius:6px}
+
+.device{
+  background:#0a0a0a; border:1px solid var(--rule); border-radius:36px; padding:9px;
+  box-shadow:var(--shadow); width:100%; max-width:394px; flex:none;
+}
+.screen{
+  background:var(--ig-bg); border-radius:28px; overflow:hidden;
+  display:flex; flex-direction:column;
+  height:clamp(500px, calc(100svh - 128px), 704px);
+  font-family:var(--font-phone);
+}
+.statusbar{
+  display:flex; justify-content:space-between; align-items:center; padding:10px 21px 3px;
+  color:var(--ig-ink); font-size:12.5px; font-weight:600; font-variant-numeric:tabular-nums;
+}
+.statusbar .glyphs{display:flex; gap:5px; align-items:center; opacity:.9}
+.ighead{
+  display:flex; align-items:center; gap:11px; padding:9px 13px 11px;
+  border-bottom:1px solid var(--ig-line); color:var(--ig-ink); flex:none;
+}
+.chev{color:var(--ig-ink); font-size:21px; line-height:1; flex:none}
+.avatar{
+  width:32px;height:32px;border-radius:50%;flex:none; display:grid;place-items:center;
+  background:linear-gradient(135deg,#F9CE34,#EE2A7B 52%,#6228D7);
+  color:#fff; font-weight:700; font-size:12.5px;
+}
+.ighead .who{min-width:0; flex:1}
+.ighead .hname{font-size:14px; font-weight:600; display:flex; align-items:center; gap:4px}
+.verified{width:12px;height:12px;flex:none}
+.ighead .hsub{font-size:11.5px; color:var(--ig-ink-2); margin-top:1px}
+.ighead .icons{display:flex; gap:16px; color:var(--ig-ink); opacity:.92}
+
+.thread{
+  flex:1; overflow-y:auto; overflow-x:hidden; padding:16px 12px 8px;
+  display:flex; flex-direction:column; gap:2px;
+  scrollbar-width:thin; scrollbar-color:var(--ig-line) transparent;
+}
+.thread::-webkit-scrollbar{width:6px}
+.thread::-webkit-scrollbar-thumb{background:var(--ig-line); border-radius:3px}
+
+.intro{text-align:center; padding:22px 26px 8px; color:var(--ig-ink-2)}
+.intro .bigav{
+  width:70px;height:70px;border-radius:50%;margin:0 auto 11px; display:grid;place-items:center;
+  background:linear-gradient(135deg,#F9CE34,#EE2A7B 52%,#6228D7); color:#fff; font-weight:700; font-size:25px;
+}
+.intro .bigname{color:var(--ig-ink); font-size:17px; font-weight:600; letter-spacing:-.01em}
+.intro .bighandle{font-size:13px; margin-top:3px}
+.intro .meta{font-size:12.5px; margin-top:12px; line-height:1.5}
+.daystamp{text-align:center; color:var(--ig-ink-2); font-size:11.5px; font-weight:600; padding:14px 0 6px}
+
+.row{display:flex; margin-top:2px}
+.row.them{justify-content:flex-start}
+.row.me{justify-content:flex-end}
+.row.gap{margin-top:9px}
+.bubble{
+  max-width:73%; padding:9px 13px; border-radius:19px; font-size:14.5px; line-height:1.36;
+  color:var(--ig-ink); word-wrap:break-word; overflow-wrap:anywhere; white-space:pre-wrap;
+  animation:pop .22s cubic-bezier(.2,.9,.3,1.3);
+}
+@keyframes pop{from{opacity:0; transform:translateY(7px) scale(.97)}to{opacity:1; transform:none}}
+.them .bubble{background:var(--ig-in); border-bottom-left-radius:5px}
+.me .bubble{background:linear-gradient(105deg,var(--ig-out-a),var(--ig-out-b)); border-bottom-right-radius:5px}
+.row.them + .row.them .bubble{border-bottom-left-radius:19px; border-top-left-radius:5px}
+.row.me + .row.me .bubble{border-bottom-right-radius:19px; border-top-right-radius:5px}
+.bubble a{color:#fff; text-decoration:underline; text-underline-offset:2px}
+.seen{text-align:right; color:var(--ig-ink-2); font-size:11px; padding:4px 6px 2px}
+.notice{text-align:center; color:var(--ig-ink-2); font-size:12px; line-height:1.5; padding:14px 26px 4px}
+
+.typing{
+  display:flex; gap:4px; align-items:center; padding:12px 15px;
+  background:var(--ig-in); border-radius:19px; border-bottom-left-radius:5px;
+}
+.typing i{width:7px;height:7px;border-radius:50%;background:#8E8E8E;animation:blink 1.3s infinite}
+.typing i:nth-child(2){animation-delay:.18s}.typing i:nth-child(3){animation-delay:.36s}
+@keyframes blink{0%,60%,100%{opacity:.35; transform:translateY(0)}30%{opacity:1; transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.bubble{animation:none}.typing i{animation:none;opacity:.7}}
+
+.composer{
+  border-top:1px solid var(--ig-line); padding:9px 11px 13px;
+  display:flex; gap:9px; align-items:flex-end; flex:none;
+}
+.inputpill{
+  flex:1; display:flex; align-items:center; gap:8px;
+  border:1px solid #363636; border-radius:22px; padding:7px 6px 7px 15px;
+}
+#msg{
+  flex:1; background:transparent; border:0; color:var(--ig-ink); font-family:inherit;
+  font-size:16px; resize:none; max-height:88px; line-height:1.35; padding:1px 0;
+}
+#msg::placeholder{color:#8E8E8E}
+#msg:focus{outline:none}
+#send{
+  background:none; border:0; color:#3797F0; font-weight:600; font-size:14.5px; cursor:pointer;
+  padding:4px 9px; font-family:var(--font-phone);
+}
+#send[disabled]{color:#3E5163; cursor:default}
+.locked{
+  padding:15px 20px; text-align:center; color:var(--ig-ink-2); font-size:12.5px;
+  border-top:1px solid var(--ig-line); line-height:1.55; flex:none;
+}
+.caption{font-size:11.5px; color:var(--ink-2); text-align:center; letter-spacing:.02em; margin:0; opacity:.75}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="device">
+    <div class="screen">
+
+      <div class="statusbar">
+        <span id="clock">9:41</span>
+        <span class="glyphs">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><path d="M8 11.2 6.1 9.1a2.7 2.7 0 0 1 3.8 0L8 11.2Zm-3.6-4a5.6 5.6 0 0 1 7.2 0l1.3-1.5a7.6 7.6 0 0 0-9.8 0l1.3 1.5Zm-2.6-3A9.5 9.5 0 0 1 14.2 4.2L15.6 2.7a11.5 11.5 0 0 0-15.2 0L1.8 4.2Z"/></svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none" aria-hidden="true"><rect x=".7" y=".7" width="20" height="10.6" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.2" y="2.2" width="17" height="7.6" rx="1.8" fill="currentColor"/><path d="M22.5 4.2v3.6c.9-.3 1.5-1 1.5-1.8s-.6-1.5-1.5-1.8Z" fill="currentColor" fill-opacity=".5"/></svg>
+        </span>
+      </div>
+
+      <div class="ighead">
+        <span class="chev" aria-hidden="true">&#8249;</span>
+        <span class="avatar">CJ</span>
+        <span class="who">
+          <span class="hname">chxrliejp
+            <svg class="verified" viewBox="0 0 24 24" fill="#3797F0" aria-hidden="true"><path d="M12 1.5 14.6 4l3.6-.4 1 3.5 3.3 1.6-1.4 3.3 1.4 3.3-3.3 1.6-1 3.5-3.6-.4L12 22.5 9.4 20l-3.6.4-1-3.5L1.5 15.3l1.4-3.3-1.4-3.3 3.3-1.6 1-3.5L9.4 4 12 1.5Z"/><path d="m10.6 15.4-3-3 1.3-1.3 1.7 1.7 4-4 1.3 1.3-5.3 5.3Z" fill="#fff"/></svg>
+          </span>
+          <span class="hsub">Active now</span>
+        </span>
+        <span class="icons" aria-hidden="true">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 7 22 4v16l-5-3v-6Z"/><rect x="2" y="5" width="15" height="14" rx="3"/></svg>
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3h3l2 5-2.5 1.5a12 12 0 0 0 6 6L15 13l5 2v3a2.5 2.5 0 0 1-2.8 2.5A18 18 0 0 1 2.5 5.8 2.5 2.5 0 0 1 5 3Z"/></svg>
+        </span>
+      </div>
+
+      <div class="thread" id="thread" role="log" aria-live="polite" aria-label="Conversation with chxrliejp">
+        <div class="intro">
+          <div class="bigav">CJ</div>
+          <div class="bigname">Chxrlie</div>
+          <div class="bighandle">chxrliejp &middot; Instagram</div>
+          <div class="meta" id="introMeta">You follow each other on Instagram</div>
+        </div>
+        <div class="notice" id="startNotice">Send a message to start the conversation.</div>
+      </div>
+
+      <div class="composer" id="composer">
+        <div class="inputpill">
+          <label class="sr" for="msg">Message</label>
+          <textarea id="msg" rows="1" placeholder="Message..." autocomplete="off"></textarea>
+        </div>
+        <button id="send" type="button">Send</button>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="caption">Demo conversation &middot; replies are AI generated</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONFIG - the only line you need to change.
+   Paste the Production URL from the Demo Webhook node here.
+   ============================================================ */
+
+var ENDPOINT = "https://YOUR-N8N-HOST/webhook/setter-demo";
+
+/* ============================================================
+   Per-person links
+     /demo/?name=Maya%20Ellis&biz=online%20fitness%20coaching&followers=6200
+   Recognised keys: name, handle, biz (or niche), followers, views, bio, note.
+   With no parameters the setter opens cold.
+   ============================================================ */
+
+var KEYS = ["name","handle","biz","niche","followers","views","bio","note"];
+
+function readLead(){
+  var out = {}, seen = {};
+  [window.location.search, window.location.hash].forEach(function(src){
+    var s = String(src || "").replace(/^[?#]/, "");
+    if (!s) return;
+    s.split("&").forEach(function(kv){
+      var i = kv.indexOf("=");
+      if (i < 1) return;
+      var k, v;
+      try {
+        k = decodeURIComponent(kv.slice(0, i)).trim().toLowerCase();
+        v = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, " "));
+      } catch (e) { return; }
+      v = v.replace(/[\r\n\t]+/g, " ").trim().slice(0, 220);
+      if (k && v && KEYS.indexOf(k) > -1 && !seen[k]) { out[k] = v; seen[k] = 1; }
+    });
+  });
+  if (out.name) out.firstName = out.name.split(/\s+/)[0];
+  return out;
+}
+
+var LEAD = readLead();
+
+var SESSION = (function(){
+  try {
+    if (window.crypto && window.crypto.randomUUID) return "demo_" + window.crypto.randomUUID();
+  } catch (e) {}
+  return "demo_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
+})();
+
+/* ============================================================
+   STATE - page load only. Nothing is stored, so every visit
+   and every fresh link opens an empty thread.
+   ============================================================ */
+
+var locked = false, busy = false, started = false;
+
+var $ = function(id){ return document.getElementById(id); };
+var thread = $("thread"), msg = $("msg"), sendBtn = $("send");
+
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function linkify(s){
+  return esc(s).replace(/(https?:\/\/[^\s]+)/g, function(u){
+    return '<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>';
+  });
+}
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function scroll(){ thread.scrollTop = thread.scrollHeight; }
+
+function tick(){
+  var d = new Date(), h = d.getHours(), m = d.getMinutes();
+  h = h % 12; if (h === 0) h = 12;
+  $("clock").textContent = h + ":" + (m < 10 ? "0" + m : m);
+}
+tick(); setInterval(tick, 20000);
+
+if (LEAD.name){
+  $("introMeta").textContent = "You follow each other on Instagram";
+}
+
+/* ---------- thread ---------- */
+function addBubble(side, text, gap){
+  var row = document.createElement("div");
+  row.className = "row " + side + (gap ? " gap" : "");
+  var b = document.createElement("div");
+  b.className = "bubble";
+  b.innerHTML = linkify(text);
+  row.appendChild(b);
+  thread.appendChild(row);
+  scroll();
+}
+function addSeen(){
+  var old = thread.querySelector(".seen");
+  if (old) old.remove();
+  var s = document.createElement("div");
+  s.className = "seen";
+  s.textContent = "Seen";
+  thread.appendChild(s);
+  scroll();
+}
+function showTyping(){
+  var row = document.createElement("div");
+  row.className = "row them gap";
+  row.id = "typing";
+  row.innerHTML = '<div class="typing"><i></i><i></i><i></i></div>';
+  thread.appendChild(row);
+  scroll();
+}
+function hideTyping(){
+  var t = $("typing");
+  if (t) t.remove();
+}
+function showNotice(text){
+  var n = document.createElement("div");
+  n.className = "notice";
+  n.textContent = text;
+  thread.appendChild(n);
+  scroll();
+}
+function lockComposer(text){
+  locked = true;
+  var c = $("composer");
+  c.className = "locked";
+  c.textContent = text;
+}
+function setBusy(v){
+  busy = v;
+  sendBtn.disabled = v || locked;
+}
+
+/* ---------- send ---------- */
+async function send(){
+  if (busy || locked) return;
+  var text = msg.value.trim();
+  if (!text) return;
+
+  if (!started){
+    started = true;
+    var n = $("startNotice");
+    if (n) n.remove();
+    var stamp = document.createElement("div");
+    stamp.className = "daystamp";
+    stamp.textContent = "Today";
+    thread.appendChild(stamp);
+  }
+
+  msg.value = "";
+  msg.style.height = "auto";
+  setBusy(true);
+
+  addBubble("me", text, true);
+
+  await sleep(420);
+  addSeen();
+  await sleep(500);
+  showTyping();
+
+  var data = null;
+  try {
+    var ctl = new AbortController();
+    var timer = setTimeout(function(){ ctl.abort(); }, 45000);
+    var res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: SESSION, message: text, lead: LEAD }),
+      signal: ctl.signal
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error("http_" + res.status);
+    data = await res.json();
+  } catch (e) {
+    hideTyping();
+    showNotice(
+      e && e.name === "AbortError"
+        ? "That took too long to come back. Send it again."
+        : "Couldn't reach the setter just now. Send that again in a moment."
+    );
+    setBusy(false);
+    return;
+  }
+
+  hideTyping();
+
+  if (data && data.paused){
+    lockComposer("Chxrlie will pick this one up personally.");
+    setBusy(false);
+    return;
+  }
+
+  var parts = (data && Array.isArray(data.messages)) ? data.messages : [];
+  parts = parts.map(function(s){ return String(s || "").trim(); }).filter(Boolean);
+
+  if (!parts.length){
+    showNotice("Nothing came back. Send that again with a bit more detail.");
+    setBusy(false);
+    return;
+  }
+
+  for (var j = 0; j < parts.length; j++){
+    if (j > 0){
+      showTyping();
+      await sleep(Math.min(1500, 420 + parts[j].length * 22));
+      hideTyping();
+    }
+    addBubble("them", parts[j], j === 0);
+    await sleep(180);
+  }
+
+  setBusy(false);
+  msg.focus();
+}
+
+/* ---------- wiring ---------- */
+msg.addEventListener("input", function(){
+  msg.style.height = "auto";
+  msg.style.height = Math.min(88, msg.scrollHeight) + "px";
+});
+msg.addEventListener("keydown", function(e){
+  if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); }
+});
+sendBtn.addEventListener("click", send);
+msg.value = "";
+
+/* ---------- open ping, so you can see who actually looked ---------- */
+try {
+  fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: SESSION,
+      event: "open",
+      lead: LEAD,
+      referrer: document.referrer || ""
+    }),
+    keepalive: true
+  }).catch(function(){});
+} catch (e) {}
+
+})();
+</script>
+</body>
+</html>
