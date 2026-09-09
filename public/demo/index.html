@@ -238,7 +238,6 @@ body{
    Per-person links
      ?name=Maya%20Ellis&biz=online%20fitness%20coaching
    Keys: name, handle, biz (or niche), followers, note
-   With none, it opens cold.
    ============================================================ */
 
 var KEYS = ["name","handle","biz","niche","followers","note"];
@@ -269,112 +268,169 @@ var BIZ = L.biz || L.niche || "";
 var CALENDLY = "https://calendly.com/charlie-p-eighteen09marketing/eighteen09-meeting";
 
 /* ============================================================
-   THE SCRIPT
-   Charlie's 6-step flow, written to his style rules: short,
-   lowercase-leaning, no emojis, no em dashes, one question at
-   a time. && marks a new bubble, same as the live setter.
+   THE SETTER SCRIPT
+
+   Written to the workflow's own rules:
+     - one question per turn, always open ended
+     - acknowledge in a few short words, never parrot back
+     - no emojis, no "haha", no em dashes, no stating the obvious
+     - clarify a vague answer before moving on
+     - if they dodge a question, re-ask it with "lmk on ..."
+     - never pitch before the pain and the goal are on the table
+     - the name is used in the first message only
+   && starts a new bubble, same as the live ManyChat flow.
    ============================================================ */
 
 function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
 
-var ACK = ["got it","makes sense","gotcha","sounds good","yeah makes sense"];
+var ACK      = ["got it","makes sense","gotcha","sounds good"];
+var ACK_WARM = ["love that","respect","thats a solid one"];
 
-var STAGES = [
-  { // 0 -> asked about their current situation
+/* An insight only when their answer actually reveals a pattern.
+   The plan says not to force one into every response. */
+var INSIGHTS = [
+  { test:/\b(dm|dms|messages|inbox|replies|replying)\b/i,
+    line:"most people we work with were drowning in dms before they systemised it" },
+  { test:/\b(consistent|consistency|inconsistent|up and down|dry|quiet)\b/i,
+    line:"thats usually the biggest bottleneck honestly" },
+  { test:/\b(time|busy|hours|manual|manually|admin)\b/i,
+    line:"yeah the manual side eats more time than people expect" },
+  { test:/\b(cold|ghost|ghosted|go cold|drop off|stop replying)\b/i,
+    line:"leads going cold is almost always a speed thing" }
+];
+
+function insightFor(t){
+  for (var i = 0; i < INSIGHTS.length; i++){
+    if (INSIGHTS[i].test.test(t)) return INSIGHTS[i].line;
+  }
+  return "";
+}
+
+/* Each step asks exactly one question. `label` is how the question
+   gets re-asked if the lead dodges it. */
+var STEP = {
+  situation: {
     ask: function(){
-      var opener = BIZ
-        ? "so ur doing " + BIZ + " && hows client acquisition been going for u lately"
-        : "whats the main thing u got going on rn && and hows client acquisition been for u";
-      return (FIRST ? "yo " + FIRST + " && " : "yo && ") + opener;
+      var q = BIZ
+        ? "hows the " + BIZ + " side of things going rn"
+        : "whats the main thing u got going on rn";
+      return (FIRST ? "yo " + FIRST : "yo") + " && " + q;
     },
-    chips: ["struggling to get consistent clients","too many dms to keep up with","leads go cold before they book"]
+    label: "whats going on with things rn",
+    chips: ["running a coaching business","i do paid ads for ecom brands","building my personal brand"]
   },
-  { // 1 -> asked their goal
+  clarify: {
     ask: function(){
-      return pick(ACK) + ", super common at that stage && where are u looking to take things in the next 90 days";
+      return pick([
+        "wdym by that exactly",
+        "wheres the bottleneck, getting clients or something else",
+        "whats making it hard specifically"
+      ]);
     },
-    chips: ["double my client count","hit 20k months","10 more clients"]
+    label: "wheres the bottleneck",
+    chips: ["getting clients is the hard part","i get leads but they dont book","fulfilment eats all my time"]
   },
-  { // 2 -> asked the gap
-    ask: function(){
-      return pick(["love that","thats a solid target","respect"]) + " && be real with me, how close are u to that rn";
+  approach: {
+    ask: function(t){
+      var ins = insightFor(t);
+      return pick(ACK) + (ins ? ", " + ins : "") + " && what are u currently doing to get clients";
     },
+    label: "what ur doing to get clients atm",
+    chips: ["posting reels and hoping","cold dms","referrals mostly"]
+  },
+  goal: {
+    ask: function(t){
+      var ins = insightFor(t);
+      return pick(ACK) + (ins ? " && " + ins : "") + " && where are u looking to take things in the next 90 days";
+    },
+    label: "where ur trying to take things",
+    chips: ["double my client count","20k months","10 more clients"]
+  },
+  gap: {
+    ask: function(){
+      return pick(ACK_WARM) + " && be real with me, how close are u to that rn";
+    },
+    label: "how close u are to that",
     chips: ["not close at all","about halfway","pretty far off"]
   },
-  { // 3 -> the pitch
+  pitch: {
     ask: function(){
-      var proof = BIZ
-        ? "just helped another " + BIZ + " go from the exact same spot to a full calendar"
-        : "just helped another creator go from that exact spot to a full calendar";
-      return "honestly get that a lot && " + proof
-        + " && think we could definitely help u close that gap. u down to hop on a quick call this week to see if this could work for u";
+      var who = BIZ ? "another " + BIZ : "someone in a similar spot";
+      return "honestly get that a lot && just helped " + who
+        + " go from the same place to a calendar that fills itself"
+        + " && think we could help u close that gap too. would u be down for a quick call this week to see if this could work for u";
     },
+    label: "whether ur down for a quick call",
     chips: ["yeah im down","whats the price","can u tell me more first"]
   }
-];
+};
+
+var ORDER = ["situation","approach","goal","gap","pitch"];
 
 var BOOKED = "bettt && " + CALENDLY + " && just grab whatever time works for u";
 
+/* Objection handlers, lifted from the workflow's Knowledge block. */
 var OBJECTIONS = [
   {
-    id: "ai",
-    test: /\b(is this (an?\s*)?(ai|bot|automated|real)|are (you|u) (an?\s*)?(ai|bot|real|human)|a bot\b|chatgpt|automated|this feels ai)/i,
-    reply: function(){
-      return "of course, we teach ig sales with ai && would u really expect me to sit here myself ^^ && anyway, where were we";
-    }
+    id:"ai",
+    test:/\b(is this (an?\s*)?(ai|bot|automated|real)|are (you|u) (an?\s*)?(ai|bot|real|human)|a bot\b|chatgpt|automated|u sound like ai|you sound like ai)/i,
+    reply:function(){ return "of course, we teach ig sales with ai && would u really expect me to sit here myself ^^"; },
+    toBooking:false
   },
   {
-    id: "price",
-    test: /(price|pricing|how much|what.*cost|the cost|charge|ur fee|your fee|expensive|\bgbp\b|[£$]\s*\d)/i,
-    reply: function(n){
+    id:"price",
+    test:/(price|pricing|how much|what.*cost|the cost|charge|ur fee|your fee|expensive|\bgbp\b|[£$]\s*\d)/i,
+    reply:function(n){
       return n > 1
         ? "still gotta be the call for that one && itd be a made up number without knowing ur situation"
-        : "price depends on ur specific situation and goals, which is why we need to chat first && that make sense";
-    }
+        : "price depends on ur specific situation and goals, which is why we need to chat first";
+    },
+    toBooking:true
   },
   {
-    id: "info",
-    test: /(tell me more|more info|more about|how does it work|how it works|what is it|what do (u|you) do|explain|whats the system|what.s the system|send.*info|details)/i,
-    reply: function(n){
+    id:"info",
+    test:/(tell me more|more info|more about|how does it work|how it works|what is it|what do (u|you) (do|offer)|explain|whats the system|what.s the system|send.*info|more detail)/i,
+    reply:function(n){
       return n > 1
         ? "genuinely quicker on a call && 15 min and ull see exactly how itd run on ur account"
-        : "totally get that, its tough to explain everything through text without knowing ur situation better && thats why a quick call makes way more sense, plus i can show u exactly how it would work for u specifically && does that make sense";
-    }
+        : "totally get that, its tough to explain everything through text without knowing ur situation better && thats why a quick call makes way more sense, plus i can show u exactly how it would work for u specifically";
+    },
+    toBooking:true
   },
   {
-    id: "think",
-    test: /(think about it|get back to (u|you)|ill think|i.ll think|maybe later|not sure yet|let me think|need to think)/i,
-    reply: function(){
-      return "for sure, totally understand && just to clarify tho, this is just a quick call to see IF this could even work for u, no pressure or anything && would it make sense to at least hop on for 15 min to explore it";
-    }
+    id:"think",
+    test:/(think about it|get back to (u|you)|ill think|i.ll think|maybe later|not sure yet|let me think|need to think|sleep on it)/i,
+    reply:function(){
+      return "for sure, totally understand && just to clarify tho, this is just a quick call to see IF this could even work for u, no pressure or anything";
+    },
+    toBooking:true
   },
   {
-    id: "time",
-    test: /(no time|too busy|dont have time|don.t have time|havent got time|haven.t got time|busy (rn|right now|atm)|swamped)/i,
-    reply: function(){
-      return "totally get it, its literally 15 min && i just wanna see if i can help at all && no commitment on ur end";
-    }
+    id:"time",
+    test:/(no time|too busy|dont have time|don.t have time|havent got time|haven.t got time|busy (rn|right now|atm)|swamped|snowed under)/i,
+    reply:function(){
+      return "totally get it, its literally 15 min && i just wanna see if i can help at all, no commitment on ur end";
+    },
+    toBooking:true
   },
   {
-    id: "nooffer",
-    test: /(dont sell|don.t sell|nothing to sell|no offer|no product|no service|not selling|just starting|havent started|haven.t started|brand new|dont have (a )?(product|offer|service))/i,
-    reply: function(){
-      return "gotchu, thats actually where most people start && ive got a free thing called the first product formula that walks u through building an offer worth selling && ill send it over, and whenever u do have something up and running come back to me";
-    }
+    id:"nooffer",
+    test:/(dont sell|don.t sell|nothing to sell|no offer|no product|no service|not selling|just starting|havent started|haven.t started|dont have (a )?(product|offer|service))/i,
+    reply:function(){
+      return "gotchu, thats where most people start && ive got a free thing called the first product formula that walks u through building an offer worth selling && ill send it over, and whenever u have something up and running come back to me";
+    },
+    toBooking:false,
+    ends:true
   }
-];
-
-var FALLBACK = [
-  "haha fair && but back to it, ",
-  "gotcha && anyway, "
 ];
 
 /* ============================================================
    STATE - page load only, nothing stored
    ============================================================ */
 
-var stage = 0, locked = false, busy = false, started = false, done = false;
-var seen = {}, awaitingBook = false, pushedOnce = false;
+var asked = null, clarified = false, pushedGap = false;
+var locked = false, busy = false, started = false, done = false, awaitingBook = false;
+var seen = {};
 
 var $ = function(id){ return document.getElementById(id); };
 var thread = $("thread"), msg = $("msg"), sendBtn = $("send"), suggest = $("suggest");
@@ -431,7 +487,7 @@ function hideTyping(){
 }
 function setChips(list){
   suggest.innerHTML = "";
-  if (!list || !list.length || locked) return;
+  if (!list || !list.length || locked || done) return;
   list.forEach(function(t){
     var b = document.createElement("button");
     b.type = "button";
@@ -451,80 +507,105 @@ function setBusy(v){
 }
 
 /* ============================================================
-   THE ENGINE
-   Objections interrupt without losing the thread; everything
-   else advances one step of the qualification flow.
+   ENGINE
    ============================================================ */
 
-var YES = /\b(yes|yea+h?|yep|yup|sure|ok|okay|alright|deal|im down|i.m down|lets do it|let.s do it|go on|why not|sounds good|100|course|def)\b/i;
-var NO  = /\b(no|nah|nope|not really|not right now|not interested|im good|i.m good|no thanks|pass)\b/i;
+var YES = /\b(yes|yea+h?|yep|yup|sure|ok|okay|alright|deal|im down|i.m down|lets do it|let.s do it|go on|why not|sounds good|100|course|def|sounds great)\b/i;
+var NO  = /\b(no|nah|nope|not really|not right now|not interested|im good|i.m good|no thanks|pass|not for me)\b/i;
 var GREET_ONLY = /^\s*(hey+|hi+|hello+|yo+|sup|wassup|what.?s up|morning|evening|hola)[\s!.,?]*$/i;
+
+function isVague(t){
+  var s = t.trim();
+  if (/\d/.test(s)) return false;
+  if (/^(not much|nothing|idk|dunno|not sure|the usual|this and that|stuff|a bit of everything)\b/i.test(s)) return true;
+  return s.split(/\s+/).length <= 3;
+}
+function isQuestion(t){
+  return /\?/.test(t) || /^\s*(what|how|who|why|when|where|can (u|you)|do (u|you)|did (u|you)|is (it|this)|are (u|you)|whats|what.s|hows|how.s)\b/i.test(t);
+}
+
+/* Re-ask the question they skipped, in the workflow's own phrasing. */
+function reask(){
+  var k = asked && STEP[asked] ? asked : "situation";
+  return " && lmk on " + STEP[k].label + " tho";
+}
+
+function advance(t){
+  var i = ORDER.indexOf(asked);
+  var next = ORDER[i + 1];
+  asked = next;
+  if (next === "pitch") awaitingBook = true;
+  return STEP[next].ask(t);
+}
 
 function reply(text){
   var t = String(text || "");
 
-  // Booked already
-  if (done) return "already got u down && see u on the call";
+  if (done) return "already got u down && speak on the call";
 
-  // Waiting on a yes/no to the call
-  if (awaitingBook){
-    if (NO.test(t) && !YES.test(t)){
-      return "all good, no pressure at all && ill leave it with u, just lmk whenever u want to look at it";
-    }
-    if (YES.test(t)){
-      done = true;
-      return BOOKED;
-    }
+  // First contact. One question, name used here and nowhere else.
+  if (asked === null){
+    asked = "situation";
+    return STEP.situation.ask();
   }
 
-  // Objections interrupt, but never lose the current step
+  // Objections interrupt without losing the question we were on.
   for (var i = 0; i < OBJECTIONS.length; i++){
     var o = OBJECTIONS[i];
     if (o.test.test(t)){
       seen[o.id] = (seen[o.id] || 0) + 1;
-      if (o.id === "nooffer") { locked = true; }
-      if (o.id === "price" || o.id === "info" || o.id === "think" || o.id === "time"){
+      var out = o.reply(seen[o.id]);
+      if (o.ends){ locked = true; return out; }
+      // Never jump to the pitch before the pain and the goal are on the table.
+      var qualified = ORDER.indexOf(asked) >= ORDER.indexOf("gap");
+      if (o.toBooking && qualified){
         awaitingBook = true;
+        return out + " && would it make sense to hop on for 15 min and find out";
       }
-      return o.reply(seen[o.id]);
+      return out + reask();
     }
   }
 
-  // A yes at the pitch stage books it
-  if (stage >= 4 && YES.test(t)){
-    done = true;
-    return BOOKED;
+  // After the ask, a yes books it and a no exits gracefully.
+  if (awaitingBook){
+    if (YES.test(t) && !NO.test(t)){ done = true; return BOOKED; }
+    if (NO.test(t)){
+      locked = true;
+      return "all good, no pressure at all && ill leave it with u, just lmk whenever u wanna look at it";
+    }
+    if (isQuestion(t)) return "we can def get into that on the call" + reask();
+    return "no worries either way" + reask();
   }
 
-  // Greeting with nothing in it, at the start
-  if (stage === 0 && GREET_ONLY.test(t)){
-    stage = 1;
-    return (FIRST ? "yo " + FIRST + " && " : "yo && ")
-      + "whats the main thing u got going on rn && and hows client acquisition been for u";
+  // They asked something back instead of answering. Acknowledge, then re-ask.
+  if (isQuestion(t) && !GREET_ONLY.test(t)){
+    return "we can def get into that" + reask();
   }
 
-  // Their prompt says don't settle for a surface level answer on the gap
-  if (stage === 3 && t.trim().split(/\s+/).length <= 3 && !pushedOnce){
-    pushedOnce = true;
+  // Step 1.1 says clarify a vague answer before moving on.
+  if (asked === "situation" && !clarified && (isVague(t) || GREET_ONLY.test(t))){
+    clarified = true;
+    asked = "clarify";
+    return STEP.clarify.ask();
+  }
+  if (asked === "clarify"){
+    asked = "situation";
+    return advance(t);
+  }
+
+  // Don't settle for a surface level answer on the gap.
+  if (asked === "gap" && isVague(t) && !pushedGap){
+    pushedGap = true;
     return "come on, gimme a bit more than that && how far off are u really";
   }
 
-  if (stage < STAGES.length){
-    var out = STAGES[stage].ask();
-    stage++;
-    if (stage >= STAGES.length) awaitingBook = true;
-    return out;
-  }
-
-  // Past the pitch and still talking
-  awaitingBook = true;
-  return pick(FALLBACK) + "would u be down for a quick 15 min call this week";
+  return advance(t);
 }
 
 function chipsNow(){
   if (done || locked) return [];
-  if (awaitingBook) return ["yeah im down","whats the price","not right now"];
-  if (stage < STAGES.length) return STAGES[stage].chips;
+  if (awaitingBook) return STEP.pitch.chips;
+  if (asked && STEP[asked]) return STEP[asked].chips;
   return [];
 }
 
@@ -568,7 +649,7 @@ async function send(){
   if (locked){
     var c = $("composer");
     c.className = "locked";
-    c.textContent = "Chxrlie sent the free resource over.";
+    c.textContent = done ? "Call booked." : "Conversation paused.";
     suggest.innerHTML = "";
   } else {
     setChips(chipsNow());
@@ -579,9 +660,12 @@ async function send(){
 }
 
 /* ---------- restart ---------- */
+var OPENERS = ["hey","saw ur post about the ai setter","hows it going"];
+
 function restart(){
-  stage = 0; locked = false; busy = false; started = false; done = false;
-  seen = {}; awaitingBook = false; pushedOnce = false;
+  asked = null; clarified = false; pushedGap = false;
+  locked = false; busy = false; started = false; done = false; awaitingBook = false;
+  seen = {};
 
   var c = $("composer");
   if (c.className === "locked"){
@@ -603,7 +687,7 @@ function restart(){
     + '<div class="notice" id="startNotice">Send a message to start the conversation.</div>';
 
   msg.value = "";
-  setChips(["hey","saw ur post about the ai setter","hows it going"]);
+  setChips(OPENERS);
   setBusy(false);
 }
 
@@ -622,7 +706,7 @@ function wire(){
 wire();
 $("restart").addEventListener("click", restart);
 msg.value = "";
-setChips(["hey","saw ur post about the ai setter","hows it going"]);
+setChips(OPENERS);
 
 })();
 </script>
