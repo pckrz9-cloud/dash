@@ -274,6 +274,49 @@ var ack     = rot(["got it","makes sense","gotcha","sounds good","yeah makes sen
 var ackWarm = rot(["love that","respect","solid target","thats a good one"]);
 var soft    = rot(["all good","no worries","for sure","totally get that"]);
 
+/* ---- warming up before any business question ---- */
+var GOOD = /\b(good|great|fine|not bad|all good|well|grand|decent|cant complain|can.t complain|solid|alright|ok|okay|chillin|chilling|blessed|smashing it|vibing)\b/i;
+var BAD  = /\b(tired|rough|stressed|not great|been better|awful|terrible|hectic|struggling|knackered|shattered|long week|dead)\b/i;
+
+var hi       = rot(["yo","yo","hey","yooo"]);
+var howsIt   = rot(["hows it going","u alright","hows things ur end","hows ur week been"]);
+var reGood   = rot(["good to hear","nice one","love that","good stuff"]);
+var reBad    = rot(["ah fair enough","sounds like a week","been there honestly","fair play for pushing through"]);
+var reMeh    = rot(["gotcha","nice one","fair enough"]);
+var mine     = rot([
+  "been a busy one this end",
+  "been heads down building stuff all week",
+  "been flat out with client builds",
+  "same here, been buried in work"
+]);
+var whatYou  = rot([
+  "what u working on atm",
+  "whats ur main thing rn",
+  "what u got going on urself",
+  "what are u building at the min"
+]);
+
+/* "u?" / "hbu" is them asking back, not dodging. */
+var RECIP = /\b(u|you|urself|yourself|hbu|wbu|and (u|you)|how about (u|you)|what about (u|you))\s*\??\s*$/i;
+
+function greetReact(t){
+  if (BAD.test(t))  return reBad();
+  if (GOOD.test(t)) return reGood();
+  return reMeh();
+}
+
+/* Did their opener already say something worth reacting to? */
+var GENERIC = { "creator": true };
+
+function hasSubstance(t){
+  if (isCompliment(t)) return false;
+  var n = findNiche(t);
+  return (!!n && !GENERIC[n]) || t.trim().split(/\s+/).length >= 7;
+}
+function isCompliment(t){
+  return /\b(love (ur|your)|like (ur|your)|great (post|content|page|video|reel)|saw (ur|your)|nice (post|content|page)|ur content|your content|appreciate|good stuff|fire)\b/i.test(t);
+}
+
 /* ---- what they do, remembered and reused in the pitch ---- */
 var NICHES = [
   {re:/\b(smma|social media marketing)\b/i,                          n:"smma owner"},
@@ -290,6 +333,12 @@ var NICHES = [
   {re:/\b(coach|coaching|mentor|mentoring)\b/i,                       n:"coach"},
   {re:/\b(creator|influencer|personal brand|content)\b/i,             n:"creator"}
 ];
+
+function plural(n){
+  if (/[sxz]$|(ch|sh)$/i.test(n)) return n + "es";
+  if (/[^aeiou]y$/i.test(n))      return n.replace(/y$/, "ies");
+  return n + "s";
+}
 
 function findNiche(t){
   for (var i = 0; i < NICHES.length; i++) if (NICHES[i].re.test(t)) return NICHES[i].n;
@@ -329,10 +378,19 @@ function insight(t){
 
 /* ---- their goal, reused in the pitch the way the plan asks ---- */
 function shortGoal(t){
-  var m = t.match(/\b\d[\d,.]*\s*k\b(?:\s*(?:a|per)?\s*month|\s*\/\s*mo|\s*months?)?/i)
+  var m = t.match(/\b\d[\d,.]*\s*k\b(?:\s*months?\b|\s*(?:a|per)\s*month\b|\s*\/\s*mo\b)?/i)
        || t.match(/\b(?:double|triple|2x|3x|5x|10x)\s+[a-z ]{0,18}/i)
        || t.match(/\b\d+\s*(?:more\s*)?(?:clients?|customers?|students?|sales)\b/i);
-  return m ? m[0].trim().replace(/\s+/g, " ").toLowerCase() : "";
+  if (!m) return "";
+  return m[0].trim().replace(/\s+/g, " ").toLowerCase().replace(/\b(our|my)\b/g, "ur");
+}
+
+/* "10 more clients" needs a different verb to "20k months". */
+function goalClause(g){
+  if (!g) return " close that gap";
+  if (/^(double|triple|\dx)/.test(g))           return " help u " + g;
+  if (/client|customer|student|sale/.test(g))    return " help u get " + g;
+  return " help u hit " + g;
 }
 
 var mem = { niche: P.biz || P.niche || "", goal: "" };
@@ -341,11 +399,6 @@ var mem = { niche: P.biz || P.niche || "", goal: "" };
    STEPS - each is one message with one question
    ============================================================ */
 
-var askSituation = rot([
-  "whats the main thing u got going on rn",
-  "whats ur main focus at the min",
-  "what are u building rn"
-]);
 var askClarify = rot([
   "wdym by that exactly",
   "wheres the bottleneck, getting clients or something else",
@@ -368,16 +421,34 @@ var askGap = rot([
 ]);
 
 var STEP = {
-  situation: {
-    ask: function(){
-      var q = mem.niche ? "hows the " + mem.niche + " side of things going rn" : askSituation();
-      return (FIRST ? "yo " + FIRST + ", " : "yo, ") + q;
+  /* Pure rapport. No business question, nothing asked about their work. */
+  greet: {
+    ask: function(t){
+      var name = FIRST ? " " + FIRST : "";
+      if (isCompliment(t))  return "appreciate that" + name + ", glad it landed. " + howsIt();
+      if (mem.niche)        return hi() + name + ", nice one. " + howsIt();
+      return hi() + name + ", " + howsIt();
     },
-    label: "whats going on with things rn"
+    label: "hows things ur end"
+  },
+  /* Reacts to how they are, gives something back, then opens it up. */
+  situation: {
+    ask: function(t){
+      return greetReact(t) + ", " + mine() + ". " + whatYou();
+    },
+    label: "what u got going on rn"
   },
   clarify:  { ask: function(){ return askClarify(); },
               label: "wheres the bottleneck" },
-  approach: { ask: function(t){ return ack() + ", " + insight(t) + askApproach(); },
+  approach: { ask: function(t){
+                var ins = insight(t);
+                var lead;
+                if (BAD.test(t))            lead = reBad() + ", ";
+                else if (ins)               lead = ack() + ", " + ins;
+                else if (mem.niche)         lead = "sick, " + plural(mem.niche) + " are killing it rn. ";
+                else                        lead = ack() + ", ";
+                return lead + askApproach();
+              },
               label: "what ur doing to get clients atm" },
   goal:     { ask: function(t){ return ack() + ", " + insight(t) + askGoal(); },
               label: "where ur trying to take things" },
@@ -386,7 +457,7 @@ var STEP = {
   pitch: {
     ask: function(){
       var who  = mem.niche ? "another " + mem.niche : "someone in the same spot";
-      var goal = mem.goal ? " help u hit that " + mem.goal : " close that gap";
+      var goal = goalClause(mem.goal);
       return "get that a lot, just helped " + who + " go from there to a calendar that fills itself. think we could"
            + goal + " too, would u be down for a quick call this week";
     },
@@ -394,7 +465,7 @@ var STEP = {
   }
 };
 
-var ORDER = ["situation","approach","goal","gap","pitch"];
+var ORDER = ["greet","situation","approach","goal","gap","pitch"];
 var BOOKED = "bettt, grab whatever time works for u " + CALENDLY;
 var CLOSE  = " would it make sense to hop on for 15 min and find out";
 
@@ -484,7 +555,7 @@ var OBJ = [
 
 var asked = null, clarified = false, pushedGap = false;
 var locked = false, busy = false, started = false, done = false, awaitingBook = false;
-var seen = {}, junk = 0;
+var seen = {}, junk = 0, openerHadSubstance = false;
 
 var $ = function(id){ return document.getElementById(id); };
 var thread = $("thread"), msg = $("msg"), sendBtn = $("send");
@@ -565,6 +636,8 @@ function reask(){
 }
 function advance(t){
   var next = ORDER[ORDER.indexOf(asked) + 1];
+  // They already told us what they do in the opener, so don't ask again.
+  if (next === "situation" && mem.niche && openerHadSubstance) next = "approach";
   asked = next;
   if (next === "pitch") awaitingBook = true;
   return STEP[next].ask(t);
@@ -576,11 +649,19 @@ function reply(text){
   if (done) return "already got u down, speak on the call";
 
   // Remember what they do and what they want, for the pitch.
-  if (!mem.niche) mem.niche = findNiche(t);
+  // A compliment about your content is not them telling you their niche.
+  if (!isCompliment(t)){
+    var found = findNiche(t);
+    if (found && (!mem.niche || (GENERIC[mem.niche] && !GENERIC[found]))) mem.niche = found;
+  }
   if (asked === "goal" && !mem.goal) mem.goal = shortGoal(t);
 
-  // First contact. One question, name used here and nowhere else.
-  if (asked === null){ asked = "situation"; return STEP.situation.ask(); }
+  // First contact is rapport only. Name used here and nowhere else.
+  if (asked === null){
+    openerHadSubstance = hasSubstance(t);
+    asked = "greet";
+    return STEP.greet.ask(t);
+  }
 
   // Nonsense repeatedly hands over, per the workflow's handover rules.
   if (isJunk(t)){
@@ -613,7 +694,9 @@ function reply(text){
     return soft() + "." + reask();
   }
 
-  if (isQuestion(t) && !GREET.test(t)) return "we can def get into that." + reask();
+  // Answering "hows it going" and asking back is not a dodge.
+  var answeredGreeting = asked === "greet" && (GOOD.test(t) || BAD.test(t) || RECIP.test(t));
+  if (isQuestion(t) && !GREET.test(t) && !answeredGreeting) return "we can def get into that." + reask();
 
   // Step 1.1 says clarify a vague answer before moving on.
   if (asked === "situation" && !clarified && (isVague(t) || GREET.test(t))){

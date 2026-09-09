@@ -30,11 +30,16 @@ works their niche into the opener and the social proof line.
 
 The lead types whatever they want. The script follows the live setter's flow:
 
-1. Current situation, with a clarifying question first if their answer is vague
-2. What they're currently doing to get clients
-3. Goal for the next 90 days
-4. The gap between the two
-5. Pitch the call, then send the Calendly link
+1. A greeting only. No business question at all on the first reply
+2. Reacts to how they are, gives something back, then opens it up
+3. What they're currently doing to get clients
+4. Goal for the next 90 days
+5. The gap between the two
+6. Pitch the call, then send the Calendly link
+
+A vague answer at step 2 gets a clarifying question before anything advances.
+If their opener already says what they do, step 2 is skipped rather than asking
+them to repeat it.
 
 It reads what they type as it goes. It picks up their niche from thirteen
 patterns (coach, agency, ads, ecom, editor, course, realtor, saas, and so on)
