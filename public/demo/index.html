@@ -4,13 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Chxrlie &middot; Eighteen09</title>
-<meta name="description" content="See the AI setter handle a real conversation.">
-<meta name="robots" content="noindex">
+<meta name="description" content="Try the AI setter for yourself.">
 <meta property="og:title" content="Chxrlie &middot; Eighteen09">
-<meta property="og:description" content="See the AI setter handle a real conversation.">
+<meta property="og:description" content="Try the AI setter for yourself.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap">
+</head>
+<body>
 <style>
 :root{
   --ground:#0B0D12; --ground-2:#141821; --ink-2:#8A94A8; --rule:#232B3A;
@@ -21,8 +22,12 @@
   --font-ui:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
   --font-phone:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 }
+:root[data-theme="light"]{
+  --ground:#E9EAEF; --ground-2:#F7F8FA; --ink-2:#6B7488; --rule:#D8DBE3;
+  --shadow:0 30px 70px -30px rgba(20,26,40,.45);
+}
 @media (prefers-color-scheme:light){
-  :root{
+  :root:not([data-theme="dark"]){
     --ground:#E9EAEF; --ground-2:#F7F8FA; --ink-2:#6B7488; --rule:#D8DBE3;
     --shadow:0 30px 70px -30px rgba(20,26,40,.45);
   }
@@ -39,7 +44,7 @@ body{
 .wrap{
   min-height:100%;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:14px; padding-inline:20px; padding-block:24px;
+  gap:13px; padding-inline:20px; padding-block:24px;
 }
 :focus-visible{outline:2px solid #3797F0; outline-offset:3px; border-radius:6px}
 
@@ -50,7 +55,7 @@ body{
 .screen{
   background:var(--ig-bg); border-radius:28px; overflow:hidden;
   display:flex; flex-direction:column;
-  height:clamp(500px, calc(100svh - 128px), 704px);
+  height:clamp(500px, calc(100svh - 132px), 704px);
   font-family:var(--font-phone);
 }
 .statusbar{
@@ -119,6 +124,19 @@ body{
 @keyframes blink{0%,60%,100%{opacity:.35; transform:translateY(0)}30%{opacity:1; transform:translateY(-3px)}}
 @media (prefers-reduced-motion:reduce){.bubble{animation:none}.typing i{animation:none;opacity:.7}}
 
+.suggest{
+  display:flex; gap:7px; padding:0 11px 9px; overflow-x:auto; flex:none;
+  scrollbar-width:none;
+}
+.suggest::-webkit-scrollbar{display:none}
+.suggest:empty{display:none}
+.sg{
+  flex:none; background:transparent; border:1px solid #363636; color:var(--ig-ink);
+  border-radius:16px; padding:6px 12px; font-size:13px; font-family:var(--font-phone);
+  cursor:pointer; white-space:nowrap; transition:background .15s, border-color .15s;
+}
+.sg:hover{background:#1c1c1c; border-color:#4a4a4a}
+
 .composer{
   border-top:1px solid var(--ig-line); padding:9px 11px 13px;
   display:flex; gap:9px; align-items:flex-end; flex:none;
@@ -142,11 +160,17 @@ body{
   padding:15px 20px; text-align:center; color:var(--ig-ink-2); font-size:12.5px;
   border-top:1px solid var(--ig-line); line-height:1.55; flex:none;
 }
-.caption{font-size:11.5px; color:var(--ink-2); text-align:center; letter-spacing:.02em; margin:0; opacity:.75}
+.footline{
+  display:flex; align-items:center; gap:10px; font-size:11.5px; color:var(--ink-2);
+  letter-spacing:.02em; opacity:.8;
+}
+.footline button{
+  background:none; border:0; color:inherit; font:inherit; cursor:pointer;
+  text-decoration:underline; text-underline-offset:2px; padding:0; opacity:.85;
+}
+.footline button:hover{opacity:1}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 </style>
-</head>
-<body>
 
 <div class="wrap">
   <div class="device">
@@ -181,10 +205,12 @@ body{
           <div class="bigav">CJ</div>
           <div class="bigname">Chxrlie</div>
           <div class="bighandle">chxrliejp &middot; Instagram</div>
-          <div class="meta" id="introMeta">You follow each other on Instagram</div>
+          <div class="meta">You follow each other on Instagram</div>
         </div>
         <div class="notice" id="startNotice">Send a message to start the conversation.</div>
       </div>
+
+      <div class="suggest" id="suggest"></div>
 
       <div class="composer" id="composer">
         <div class="inputpill">
@@ -197,7 +223,11 @@ body{
     </div>
   </div>
 
-  <p class="caption">Demo conversation &middot; replies are AI generated</p>
+  <p class="footline">
+    <span>Demo conversation</span>
+    <span aria-hidden="true">&middot;</span>
+    <button type="button" id="restart">Start over</button>
+  </p>
 </div>
 
 <script>
@@ -205,23 +235,16 @@ body{
 "use strict";
 
 /* ============================================================
-   CONFIG - the only line you need to change.
-   Paste the Production URL from the Demo Webhook node here.
-   ============================================================ */
-
-var ENDPOINT = "https://YOUR-N8N-HOST/webhook/setter-demo";
-
-/* ============================================================
    Per-person links
-     /demo/?name=Maya%20Ellis&biz=online%20fitness%20coaching&followers=6200
-   Recognised keys: name, handle, biz (or niche), followers, views, bio, note.
-   With no parameters the setter opens cold.
+     ?name=Maya%20Ellis&biz=online%20fitness%20coaching
+   Keys: name, handle, biz (or niche), followers, note
+   With none, it opens cold.
    ============================================================ */
 
-var KEYS = ["name","handle","biz","niche","followers","views","bio","note"];
+var KEYS = ["name","handle","biz","niche","followers","note"];
 
 function readLead(){
-  var out = {}, seen = {};
+  var out = {};
   [window.location.search, window.location.hash].forEach(function(src){
     var s = String(src || "").replace(/^[?#]/, "");
     if (!s) return;
@@ -233,32 +256,128 @@ function readLead(){
         k = decodeURIComponent(kv.slice(0, i)).trim().toLowerCase();
         v = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, " "));
       } catch (e) { return; }
-      v = v.replace(/[\r\n\t]+/g, " ").trim().slice(0, 220);
-      if (k && v && KEYS.indexOf(k) > -1 && !seen[k]) { out[k] = v; seen[k] = 1; }
+      v = v.replace(/[<>\r\n\t]+/g, " ").trim().slice(0, 90);
+      if (k && v && KEYS.indexOf(k) > -1 && !out[k]) out[k] = v;
     });
   });
-  if (out.name) out.firstName = out.name.split(/\s+/)[0];
   return out;
 }
 
-var LEAD = readLead();
-
-var SESSION = (function(){
-  try {
-    if (window.crypto && window.crypto.randomUUID) return "demo_" + window.crypto.randomUUID();
-  } catch (e) {}
-  return "demo_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
-})();
+var L = readLead();
+var FIRST = L.name ? L.name.split(/\s+/)[0] : "";
+var BIZ = L.biz || L.niche || "";
+var CALENDLY = "https://calendly.com/charlie-p-eighteen09marketing/eighteen09-meeting";
 
 /* ============================================================
-   STATE - page load only. Nothing is stored, so every visit
-   and every fresh link opens an empty thread.
+   THE SCRIPT
+   Charlie's 6-step flow, written to his style rules: short,
+   lowercase-leaning, no emojis, no em dashes, one question at
+   a time. && marks a new bubble, same as the live setter.
    ============================================================ */
 
-var locked = false, busy = false, started = false;
+function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
+
+var ACK = ["got it","makes sense","gotcha","sounds good","yeah makes sense"];
+
+var STAGES = [
+  { // 0 -> asked about their current situation
+    ask: function(){
+      var opener = BIZ
+        ? "so ur doing " + BIZ + " && hows client acquisition been going for u lately"
+        : "whats the main thing u got going on rn && and hows client acquisition been for u";
+      return (FIRST ? "yo " + FIRST + " && " : "yo && ") + opener;
+    },
+    chips: ["struggling to get consistent clients","too many dms to keep up with","leads go cold before they book"]
+  },
+  { // 1 -> asked their goal
+    ask: function(){
+      return pick(ACK) + ", super common at that stage && where are u looking to take things in the next 90 days";
+    },
+    chips: ["double my client count","hit 20k months","10 more clients"]
+  },
+  { // 2 -> asked the gap
+    ask: function(){
+      return pick(["love that","thats a solid target","respect"]) + " && be real with me, how close are u to that rn";
+    },
+    chips: ["not close at all","about halfway","pretty far off"]
+  },
+  { // 3 -> the pitch
+    ask: function(){
+      var proof = BIZ
+        ? "just helped another " + BIZ + " go from the exact same spot to a full calendar"
+        : "just helped another creator go from that exact spot to a full calendar";
+      return "honestly get that a lot && " + proof
+        + " && think we could definitely help u close that gap. u down to hop on a quick call this week to see if this could work for u";
+    },
+    chips: ["yeah im down","whats the price","can u tell me more first"]
+  }
+];
+
+var BOOKED = "bettt && " + CALENDLY + " && just grab whatever time works for u";
+
+var OBJECTIONS = [
+  {
+    id: "ai",
+    test: /\b(is this (an?\s*)?(ai|bot|automated|real)|are (you|u) (an?\s*)?(ai|bot|real|human)|a bot\b|chatgpt|automated|this feels ai)/i,
+    reply: function(){
+      return "of course, we teach ig sales with ai && would u really expect me to sit here myself ^^ && anyway, where were we";
+    }
+  },
+  {
+    id: "price",
+    test: /(price|pricing|how much|what.*cost|the cost|charge|ur fee|your fee|expensive|\bgbp\b|[£$]\s*\d)/i,
+    reply: function(n){
+      return n > 1
+        ? "still gotta be the call for that one && itd be a made up number without knowing ur situation"
+        : "price depends on ur specific situation and goals, which is why we need to chat first && that make sense";
+    }
+  },
+  {
+    id: "info",
+    test: /(tell me more|more info|more about|how does it work|how it works|what is it|what do (u|you) do|explain|whats the system|what.s the system|send.*info|details)/i,
+    reply: function(n){
+      return n > 1
+        ? "genuinely quicker on a call && 15 min and ull see exactly how itd run on ur account"
+        : "totally get that, its tough to explain everything through text without knowing ur situation better && thats why a quick call makes way more sense, plus i can show u exactly how it would work for u specifically && does that make sense";
+    }
+  },
+  {
+    id: "think",
+    test: /(think about it|get back to (u|you)|ill think|i.ll think|maybe later|not sure yet|let me think|need to think)/i,
+    reply: function(){
+      return "for sure, totally understand && just to clarify tho, this is just a quick call to see IF this could even work for u, no pressure or anything && would it make sense to at least hop on for 15 min to explore it";
+    }
+  },
+  {
+    id: "time",
+    test: /(no time|too busy|dont have time|don.t have time|havent got time|haven.t got time|busy (rn|right now|atm)|swamped)/i,
+    reply: function(){
+      return "totally get it, its literally 15 min && i just wanna see if i can help at all && no commitment on ur end";
+    }
+  },
+  {
+    id: "nooffer",
+    test: /(dont sell|don.t sell|nothing to sell|no offer|no product|no service|not selling|just starting|havent started|haven.t started|brand new|dont have (a )?(product|offer|service))/i,
+    reply: function(){
+      return "gotchu, thats actually where most people start && ive got a free thing called the first product formula that walks u through building an offer worth selling && ill send it over, and whenever u do have something up and running come back to me";
+    }
+  }
+];
+
+var FALLBACK = [
+  "haha fair && but back to it, ",
+  "gotcha && anyway, "
+];
+
+/* ============================================================
+   STATE - page load only, nothing stored
+   ============================================================ */
+
+var stage = 0, locked = false, busy = false, started = false, done = false;
+var seen = {}, awaitingBook = false, pushedOnce = false;
 
 var $ = function(id){ return document.getElementById(id); };
-var thread = $("thread"), msg = $("msg"), sendBtn = $("send");
+var thread = $("thread"), msg = $("msg"), sendBtn = $("send"), suggest = $("suggest");
 
 function esc(s){
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -277,10 +396,6 @@ function tick(){
   $("clock").textContent = h + ":" + (m < 10 ? "0" + m : m);
 }
 tick(); setInterval(tick, 20000);
-
-if (LEAD.name){
-  $("introMeta").textContent = "You follow each other on Instagram";
-}
 
 /* ---------- thread ---------- */
 function addBubble(side, text, gap){
@@ -314,22 +429,103 @@ function hideTyping(){
   var t = $("typing");
   if (t) t.remove();
 }
-function showNotice(text){
-  var n = document.createElement("div");
-  n.className = "notice";
-  n.textContent = text;
-  thread.appendChild(n);
-  scroll();
-}
-function lockComposer(text){
-  locked = true;
-  var c = $("composer");
-  c.className = "locked";
-  c.textContent = text;
+function setChips(list){
+  suggest.innerHTML = "";
+  if (!list || !list.length || locked) return;
+  list.forEach(function(t){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "sg";
+    b.textContent = t;
+    b.addEventListener("click", function(){
+      if (busy || locked) return;
+      msg.value = t;
+      send();
+    });
+    suggest.appendChild(b);
+  });
 }
 function setBusy(v){
   busy = v;
   sendBtn.disabled = v || locked;
+}
+
+/* ============================================================
+   THE ENGINE
+   Objections interrupt without losing the thread; everything
+   else advances one step of the qualification flow.
+   ============================================================ */
+
+var YES = /\b(yes|yea+h?|yep|yup|sure|ok|okay|alright|deal|im down|i.m down|lets do it|let.s do it|go on|why not|sounds good|100|course|def)\b/i;
+var NO  = /\b(no|nah|nope|not really|not right now|not interested|im good|i.m good|no thanks|pass)\b/i;
+var GREET_ONLY = /^\s*(hey+|hi+|hello+|yo+|sup|wassup|what.?s up|morning|evening|hola)[\s!.,?]*$/i;
+
+function reply(text){
+  var t = String(text || "");
+
+  // Booked already
+  if (done) return "already got u down && see u on the call";
+
+  // Waiting on a yes/no to the call
+  if (awaitingBook){
+    if (NO.test(t) && !YES.test(t)){
+      return "all good, no pressure at all && ill leave it with u, just lmk whenever u want to look at it";
+    }
+    if (YES.test(t)){
+      done = true;
+      return BOOKED;
+    }
+  }
+
+  // Objections interrupt, but never lose the current step
+  for (var i = 0; i < OBJECTIONS.length; i++){
+    var o = OBJECTIONS[i];
+    if (o.test.test(t)){
+      seen[o.id] = (seen[o.id] || 0) + 1;
+      if (o.id === "nooffer") { locked = true; }
+      if (o.id === "price" || o.id === "info" || o.id === "think" || o.id === "time"){
+        awaitingBook = true;
+      }
+      return o.reply(seen[o.id]);
+    }
+  }
+
+  // A yes at the pitch stage books it
+  if (stage >= 4 && YES.test(t)){
+    done = true;
+    return BOOKED;
+  }
+
+  // Greeting with nothing in it, at the start
+  if (stage === 0 && GREET_ONLY.test(t)){
+    stage = 1;
+    return (FIRST ? "yo " + FIRST + " && " : "yo && ")
+      + "whats the main thing u got going on rn && and hows client acquisition been for u";
+  }
+
+  // Their prompt says don't settle for a surface level answer on the gap
+  if (stage === 3 && t.trim().split(/\s+/).length <= 3 && !pushedOnce){
+    pushedOnce = true;
+    return "come on, gimme a bit more than that && how far off are u really";
+  }
+
+  if (stage < STAGES.length){
+    var out = STAGES[stage].ask();
+    stage++;
+    if (stage >= STAGES.length) awaitingBook = true;
+    return out;
+  }
+
+  // Past the pitch and still talking
+  awaitingBook = true;
+  return pick(FALLBACK) + "would u be down for a quick 15 min call this week";
+}
+
+function chipsNow(){
+  if (done || locked) return [];
+  if (awaitingBook) return ["yeah im down","whats the price","not right now"];
+  if (stage < STAGES.length) return STAGES[stage].chips;
+  return [];
 }
 
 /* ---------- send ---------- */
@@ -351,96 +547,85 @@ async function send(){
   msg.value = "";
   msg.style.height = "auto";
   setBusy(true);
+  setChips([]);
 
   addBubble("me", text, true);
 
-  await sleep(420);
+  await sleep(430);
   addSeen();
-  await sleep(500);
-  showTyping();
+  await sleep(520);
 
-  var data = null;
-  try {
-    var ctl = new AbortController();
-    var timer = setTimeout(function(){ ctl.abort(); }, 45000);
-    var res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: SESSION, message: text, lead: LEAD }),
-      signal: ctl.signal
-    });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error("http_" + res.status);
-    data = await res.json();
-  } catch (e) {
-    hideTyping();
-    showNotice(
-      e && e.name === "AbortError"
-        ? "That took too long to come back. Send it again."
-        : "Couldn't reach the setter just now. Send that again in a moment."
-    );
-    setBusy(false);
-    return;
-  }
-
-  hideTyping();
-
-  if (data && data.paused){
-    lockComposer("Chxrlie will pick this one up personally.");
-    setBusy(false);
-    return;
-  }
-
-  var parts = (data && Array.isArray(data.messages)) ? data.messages : [];
-  parts = parts.map(function(s){ return String(s || "").trim(); }).filter(Boolean);
-
-  if (!parts.length){
-    showNotice("Nothing came back. Send that again with a bit more detail.");
-    setBusy(false);
-    return;
-  }
+  var parts = reply(text).split("&&").map(function(s){ return s.trim(); }).filter(Boolean);
 
   for (var j = 0; j < parts.length; j++){
-    if (j > 0){
-      showTyping();
-      await sleep(Math.min(1500, 420 + parts[j].length * 22));
-      hideTyping();
-    }
+    showTyping();
+    await sleep(Math.min(1600, 480 + parts[j].length * 20));
+    hideTyping();
     addBubble("them", parts[j], j === 0);
-    await sleep(180);
+    await sleep(200);
+  }
+
+  if (locked){
+    var c = $("composer");
+    c.className = "locked";
+    c.textContent = "Chxrlie sent the free resource over.";
+    suggest.innerHTML = "";
+  } else {
+    setChips(chipsNow());
   }
 
   setBusy(false);
-  msg.focus();
+  if (!locked) msg.focus();
+}
+
+/* ---------- restart ---------- */
+function restart(){
+  stage = 0; locked = false; busy = false; started = false; done = false;
+  seen = {}; awaitingBook = false; pushedOnce = false;
+
+  var c = $("composer");
+  if (c.className === "locked"){
+    c.className = "composer";
+    c.innerHTML = '<div class="inputpill"><label class="sr" for="msg">Message</label>'
+      + '<textarea id="msg" rows="1" placeholder="Message..." autocomplete="off"></textarea></div>'
+      + '<button id="send" type="button">Send</button>';
+    msg = $("msg"); sendBtn = $("send");
+    wire();
+  }
+
+  thread.innerHTML =
+    '<div class="intro">'
+    + '<div class="bigav">CJ</div>'
+    + '<div class="bigname">Chxrlie</div>'
+    + '<div class="bighandle">chxrliejp &middot; Instagram</div>'
+    + '<div class="meta">You follow each other on Instagram</div>'
+    + '</div>'
+    + '<div class="notice" id="startNotice">Send a message to start the conversation.</div>';
+
+  msg.value = "";
+  setChips(["hey","saw ur post about the ai setter","hows it going"]);
+  setBusy(false);
 }
 
 /* ---------- wiring ---------- */
-msg.addEventListener("input", function(){
-  msg.style.height = "auto";
-  msg.style.height = Math.min(88, msg.scrollHeight) + "px";
-});
-msg.addEventListener("keydown", function(e){
-  if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); }
-});
-sendBtn.addEventListener("click", send);
-msg.value = "";
+function wire(){
+  msg.addEventListener("input", function(){
+    msg.style.height = "auto";
+    msg.style.height = Math.min(88, msg.scrollHeight) + "px";
+  });
+  msg.addEventListener("keydown", function(e){
+    if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener("click", send);
+}
 
-/* ---------- open ping, so you can see who actually looked ---------- */
-try {
-  fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      sessionId: SESSION,
-      event: "open",
-      lead: LEAD,
-      referrer: document.referrer || ""
-    }),
-    keepalive: true
-  }).catch(function(){});
-} catch (e) {}
+wire();
+$("restart").addEventListener("click", restart);
+msg.value = "";
+setChips(["hey","saw ur post about the ai setter","hows it going"]);
 
 })();
 </script>
+
 </body>
 </html>
