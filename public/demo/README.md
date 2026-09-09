@@ -49,7 +49,8 @@ Everything the setter says is in the `<script>` block near the top:
 - `BOOKED` — the Calendly message
 - `CALENDLY` — the booking link
 
-`&&` starts a new message bubble, exactly like the live ManyChat flow.
+Every reply is a single message. The setter never sends a second one before
+the lead has answered, so keep each string to one message and one question.
 
 ## Note
 

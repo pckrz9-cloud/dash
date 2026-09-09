@@ -270,51 +270,53 @@ var CALENDLY = "https://calendly.com/charlie-p-eighteen09marketing/eighteen09-me
 /* ============================================================
    THE SETTER SCRIPT
 
-   Written to the workflow's own rules:
-     - one question per turn, always open ended
+   Rules this follows:
+     - ONE message per turn. Never two bubbles, never a follow up
+       before the lead has replied.
+     - one question per message, always open ended
      - acknowledge in a few short words, never parrot back
-     - no emojis, no "haha", no em dashes, no stating the obvious
+     - short and direct, casual slang, no emojis, no "haha",
+       no em dashes, no stating the obvious
      - clarify a vague answer before moving on
-     - if they dodge a question, re-ask it with "lmk on ..."
+     - if they dodge, re-ask with "lmk on ..."
      - never pitch before the pain and the goal are on the table
      - the name is used in the first message only
-   && starts a new bubble, same as the live ManyChat flow.
    ============================================================ */
 
 function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
 
 var ACK      = ["got it","makes sense","gotcha","sounds good"];
-var ACK_WARM = ["love that","respect","thats a solid one"];
+var ACK_WARM = ["love that","respect","solid target"];
 
-/* An insight only when their answer actually reveals a pattern.
+/* An insight only when their answer reveals a pattern.
    The plan says not to force one into every response. */
 var INSIGHTS = [
   { test:/\b(dm|dms|messages|inbox|replies|replying)\b/i,
-    line:"most people we work with were drowning in dms before they systemised it" },
+    line:"most people we work with were drowning in dms before systemising it" },
   { test:/\b(consistent|consistency|inconsistent|up and down|dry|quiet)\b/i,
     line:"thats usually the biggest bottleneck honestly" },
   { test:/\b(time|busy|hours|manual|manually|admin)\b/i,
-    line:"yeah the manual side eats more time than people expect" },
+    line:"the manual side eats more time than people expect" },
   { test:/\b(cold|ghost|ghosted|go cold|drop off|stop replying)\b/i,
     line:"leads going cold is almost always a speed thing" }
 ];
 
-function insightFor(t){
+function insight(t){
   for (var i = 0; i < INSIGHTS.length; i++){
-    if (INSIGHTS[i].test.test(t)) return INSIGHTS[i].line;
+    if (INSIGHTS[i].test.test(t)) return INSIGHTS[i].line + ". ";
   }
   return "";
 }
 
-/* Each step asks exactly one question. `label` is how the question
-   gets re-asked if the lead dodges it. */
+/* Each step is one message asking one question. `label` is how the
+   question gets re-asked if the lead skips it. */
 var STEP = {
   situation: {
     ask: function(){
       var q = BIZ
         ? "hows the " + BIZ + " side of things going rn"
         : "whats the main thing u got going on rn";
-      return (FIRST ? "yo " + FIRST : "yo") + " && " + q;
+      return (FIRST ? "yo " + FIRST + ", " : "yo, ") + q;
     },
     label: "whats going on with things rn",
     chips: ["running a coaching business","i do paid ads for ecom brands","building my personal brand"]
@@ -332,33 +334,30 @@ var STEP = {
   },
   approach: {
     ask: function(t){
-      var ins = insightFor(t);
-      return pick(ACK) + (ins ? ", " + ins : "") + " && what are u currently doing to get clients";
+      return pick(ACK) + ", " + insight(t) + "what are u currently doing to get clients";
     },
     label: "what ur doing to get clients atm",
     chips: ["posting reels and hoping","cold dms","referrals mostly"]
   },
   goal: {
     ask: function(t){
-      var ins = insightFor(t);
-      return pick(ACK) + (ins ? " && " + ins : "") + " && where are u looking to take things in the next 90 days";
+      return pick(ACK) + ", " + insight(t) + "where are u looking to take things in the next 90 days";
     },
     label: "where ur trying to take things",
     chips: ["double my client count","20k months","10 more clients"]
   },
   gap: {
     ask: function(){
-      return pick(ACK_WARM) + " && be real with me, how close are u to that rn";
+      return pick(ACK_WARM) + ", be real with me, how close are u to that rn";
     },
     label: "how close u are to that",
     chips: ["not close at all","about halfway","pretty far off"]
   },
   pitch: {
     ask: function(){
-      var who = BIZ ? "another " + BIZ : "someone in a similar spot";
-      return "honestly get that a lot && just helped " + who
-        + " go from the same place to a calendar that fills itself"
-        + " && think we could help u close that gap too. would u be down for a quick call this week to see if this could work for u";
+      var who = BIZ ? "another " + BIZ : "someone in the same spot";
+      return "get that a lot, just helped " + who
+        + " go from there to a calendar that fills itself. would u be down for a quick call this week";
     },
     label: "whether ur down for a quick call",
     chips: ["yeah im down","whats the price","can u tell me more first"]
@@ -367,14 +366,15 @@ var STEP = {
 
 var ORDER = ["situation","approach","goal","gap","pitch"];
 
-var BOOKED = "bettt && " + CALENDLY + " && just grab whatever time works for u";
+var BOOKED = "bettt, grab whatever time works for u " + CALENDLY;
+var CLOSE  = " would it make sense to hop on for 15 min and find out";
 
-/* Objection handlers, lifted from the workflow's Knowledge block. */
+/* Objection handlers, from the workflow's Knowledge block. */
 var OBJECTIONS = [
   {
     id:"ai",
     test:/\b(is this (an?\s*)?(ai|bot|automated|real)|are (you|u) (an?\s*)?(ai|bot|real|human)|a bot\b|chatgpt|automated|u sound like ai|you sound like ai)/i,
-    reply:function(){ return "of course, we teach ig sales with ai && would u really expect me to sit here myself ^^"; },
+    reply:function(){ return "of course, we teach ig sales with ai. would u really expect me to sit here myself ^^"; },
     toBooking:false
   },
   {
@@ -382,8 +382,8 @@ var OBJECTIONS = [
     test:/(price|pricing|how much|what.*cost|the cost|charge|ur fee|your fee|expensive|\bgbp\b|[£$]\s*\d)/i,
     reply:function(n){
       return n > 1
-        ? "still gotta be the call for that one && itd be a made up number without knowing ur situation"
-        : "price depends on ur specific situation and goals, which is why we need to chat first";
+        ? "still gotta be the call for that one, itd be a made up number without knowing ur situation"
+        : "price depends on ur situation and goals, thats why we need to chat first";
     },
     toBooking:true
   },
@@ -392,8 +392,8 @@ var OBJECTIONS = [
     test:/(tell me more|more info|more about|how does it work|how it works|what is it|what do (u|you) (do|offer)|explain|whats the system|what.s the system|send.*info|more detail)/i,
     reply:function(n){
       return n > 1
-        ? "genuinely quicker on a call && 15 min and ull see exactly how itd run on ur account"
-        : "totally get that, its tough to explain everything through text without knowing ur situation better && thats why a quick call makes way more sense, plus i can show u exactly how it would work for u specifically";
+        ? "genuinely quicker on a call, 15 min and ull see exactly how itd run on ur account"
+        : "tough to explain properly over text without knowing ur situation, thats why a quick call makes way more sense";
     },
     toBooking:true
   },
@@ -401,7 +401,7 @@ var OBJECTIONS = [
     id:"think",
     test:/(think about it|get back to (u|you)|ill think|i.ll think|maybe later|not sure yet|let me think|need to think|sleep on it)/i,
     reply:function(){
-      return "for sure, totally understand && just to clarify tho, this is just a quick call to see IF this could even work for u, no pressure or anything";
+      return "for sure, totally understand. its just a quick call to see IF this could even work for u, no pressure";
     },
     toBooking:true
   },
@@ -409,7 +409,7 @@ var OBJECTIONS = [
     id:"time",
     test:/(no time|too busy|dont have time|don.t have time|havent got time|haven.t got time|busy (rn|right now|atm)|swamped|snowed under)/i,
     reply:function(){
-      return "totally get it, its literally 15 min && i just wanna see if i can help at all, no commitment on ur end";
+      return "totally get it, its literally 15 min and i just wanna see if i can help at all";
     },
     toBooking:true
   },
@@ -417,7 +417,7 @@ var OBJECTIONS = [
     id:"nooffer",
     test:/(dont sell|don.t sell|nothing to sell|no offer|no product|no service|not selling|just starting|havent started|haven.t started|dont have (a )?(product|offer|service))/i,
     reply:function(){
-      return "gotchu, thats where most people start && ive got a free thing called the first product formula that walks u through building an offer worth selling && ill send it over, and whenever u have something up and running come back to me";
+      return "gotchu, thats where most people start. ill send u the first product formula, it walks u through building an offer worth selling, and come back to me whenever ur up and running";
     },
     toBooking:false,
     ends:true
@@ -454,9 +454,9 @@ function tick(){
 tick(); setInterval(tick, 20000);
 
 /* ---------- thread ---------- */
-function addBubble(side, text, gap){
+function addBubble(side, text){
   var row = document.createElement("div");
-  row.className = "row " + side + (gap ? " gap" : "");
+  row.className = "row " + side + " gap";
   var b = document.createElement("div");
   b.className = "bubble";
   b.innerHTML = linkify(text);
@@ -507,7 +507,7 @@ function setBusy(v){
 }
 
 /* ============================================================
-   ENGINE
+   ENGINE - every branch returns exactly one message
    ============================================================ */
 
 var YES = /\b(yes|yea+h?|yep|yup|sure|ok|okay|alright|deal|im down|i.m down|lets do it|let.s do it|go on|why not|sounds good|100|course|def|sounds great)\b/i;
@@ -527,12 +527,11 @@ function isQuestion(t){
 /* Re-ask the question they skipped, in the workflow's own phrasing. */
 function reask(){
   var k = asked && STEP[asked] ? asked : "situation";
-  return " && lmk on " + STEP[k].label + " tho";
+  return " lmk on " + STEP[k].label + " tho";
 }
 
 function advance(t){
-  var i = ORDER.indexOf(asked);
-  var next = ORDER[i + 1];
+  var next = ORDER[ORDER.indexOf(asked) + 1];
   asked = next;
   if (next === "pitch") awaitingBook = true;
   return STEP[next].ask(t);
@@ -541,7 +540,7 @@ function advance(t){
 function reply(text){
   var t = String(text || "");
 
-  if (done) return "already got u down && speak on the call";
+  if (done) return "already got u down, speak on the call";
 
   // First contact. One question, name used here and nowhere else.
   if (asked === null){
@@ -560,9 +559,9 @@ function reply(text){
       var qualified = ORDER.indexOf(asked) >= ORDER.indexOf("gap");
       if (o.toBooking && qualified){
         awaitingBook = true;
-        return out + " && would it make sense to hop on for 15 min and find out";
+        return out + "." + CLOSE;
       }
-      return out + reask();
+      return out + "." + reask();
     }
   }
 
@@ -571,15 +570,15 @@ function reply(text){
     if (YES.test(t) && !NO.test(t)){ done = true; return BOOKED; }
     if (NO.test(t)){
       locked = true;
-      return "all good, no pressure at all && ill leave it with u, just lmk whenever u wanna look at it";
+      return "all good, no pressure at all. just lmk whenever u wanna look at it";
     }
-    if (isQuestion(t)) return "we can def get into that on the call" + reask();
-    return "no worries either way" + reask();
+    if (isQuestion(t)) return "we can def get into that on the call." + reask();
+    return "no worries either way." + reask();
   }
 
   // They asked something back instead of answering. Acknowledge, then re-ask.
   if (isQuestion(t) && !GREET_ONLY.test(t)){
-    return "we can def get into that" + reask();
+    return "we can def get into that." + reask();
   }
 
   // Step 1.1 says clarify a vague answer before moving on.
@@ -596,7 +595,7 @@ function reply(text){
   // Don't settle for a surface level answer on the gap.
   if (asked === "gap" && isVague(t) && !pushedGap){
     pushedGap = true;
-    return "come on, gimme a bit more than that && how far off are u really";
+    return "come on, gimme a bit more than that. how far off are u really";
   }
 
   return advance(t);
@@ -630,26 +629,24 @@ async function send(){
   setBusy(true);
   setChips([]);
 
-  addBubble("me", text, true);
+  addBubble("me", text);
 
   await sleep(430);
   addSeen();
   await sleep(520);
 
-  var parts = reply(text).split("&&").map(function(s){ return s.trim(); }).filter(Boolean);
+  // One reply, one bubble. Never a second message before they answer.
+  var out = reply(text).replace(/\s+/g, " ").trim();
 
-  for (var j = 0; j < parts.length; j++){
-    showTyping();
-    await sleep(Math.min(1600, 480 + parts[j].length * 20));
-    hideTyping();
-    addBubble("them", parts[j], j === 0);
-    await sleep(200);
-  }
+  showTyping();
+  await sleep(Math.min(2200, 600 + out.length * 18));
+  hideTyping();
+  addBubble("them", out);
 
   if (locked){
     var c = $("composer");
     c.className = "locked";
-    c.textContent = done ? "Call booked." : "Conversation paused.";
+    c.textContent = "Conversation paused.";
     suggest.innerHTML = "";
   } else {
     setChips(chipsNow());
