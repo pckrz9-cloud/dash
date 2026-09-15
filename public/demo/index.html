@@ -273,6 +273,12 @@ function rot(list){
 var ack     = rot(["got it","makes sense","gotcha","sounds good","yeah makes sense","fair enough"]);
 var ackWarm = rot(["love that","respect","solid target","thats a good one"]);
 var soft    = rot(["all good","no worries","for sure","totally get that"]);
+var lastResort = rot([
+  "no stress either way, ill leave the ball in ur court",
+  "all good, just lmk if u wanna pick it up another time",
+  "ill stop bugging u, drop us a message whenever",
+  "no worries, ill leave it there for now"
+]);
 
 /* ---- warming up before any business question ---- */
 var GOOD = /\b(good|great|fine|not bad|all good|well|grand|decent|cant complain|can.t complain|solid|alright|ok|okay|chillin|chilling|blessed|smashing it|vibing)\b/i;
@@ -429,17 +435,20 @@ var STEP = {
       if (mem.niche)        return hi() + name + ", nice one. " + howsIt();
       return hi() + name + ", " + howsIt();
     },
-    label: "hows things ur end"
+    label: "hows things ur end",
+    explain: "just asking how ur weeks been, nothing deep"
   },
   /* Reacts to how they are, gives something back, then opens it up. */
   situation: {
     ask: function(t){
       return greetReact(t) + ", " + mine() + ". " + whatYou();
     },
-    label: "what u got going on rn"
+    label: "what u got going on rn",
+    explain: "like what do u actually do. business, page, whatever ur building rn"
   },
   clarify:  { ask: function(){ return askClarify(); },
-              label: "wheres the bottleneck" },
+              label: "wheres the bottleneck",
+              explain: "like is the hard part getting people interested, or closing them once they are" },
   approach: { ask: function(t){
                 var ins = insight(t);
                 var lead;
@@ -449,11 +458,14 @@ var STEP = {
                 else                        lead = ack() + ", ";
                 return lead + askApproach();
               },
-              label: "what ur doing to get clients atm" },
+              label: "what ur doing to get clients atm",
+              explain: "like outreach, ads, referrals, content. wheres the business actually coming from" },
   goal:     { ask: function(t){ return ack() + ", " + insight(t) + askGoal(); },
-              label: "where ur trying to take things" },
+              label: "where ur trying to take things",
+              explain: "like revenue or client numbers, where do u wanna be in 3 months" },
   gap:      { ask: function(){ return ackWarm() + ", " + askGap(); },
-              label: "how close u are to that" },
+              label: "how close u are to that",
+              explain: "like are u nearly there already or is it a fair way off" },
   pitch: {
     ask: function(){
       var who  = mem.niche ? "another " + mem.niche : "someone in the same spot";
@@ -461,7 +473,8 @@ var STEP = {
       return "get that a lot, just helped " + who + " go from there to a calendar that fills itself. think we could"
            + goal + " too, would u be down for a quick call this week";
     },
-    label: "whether ur down for a quick call"
+    label: "whether ur down for a quick call",
+    explain: "just 15 min with me to see if what we do actually fits what ur doing, nothing formal"
   }
 };
 
@@ -497,7 +510,7 @@ var OBJ = [
     }, book:true },
 
   { id:"proof",
-    re:/(proof|case stud|results|testimonial|examples?|screenshots?|who have (u|you) work|any wins)/i,
+    re:/(proof|case stud|results|testimonial|examples?|screenshots?|who (else )?(have|has|did) (u|you) work|worked with|work(ed)? with any|any wins|success stor|any clients)/i,
     reply:function(){ return "yeah we've had clients do up to 400k a month with this, easier to show u properly on a call than paste screenshots"; },
     book:true },
 
@@ -555,7 +568,25 @@ var OBJ = [
 
 var asked = null, clarified = false, pushedGap = false;
 var locked = false, busy = false, started = false, done = false, awaitingBook = false;
-var seen = {}, junk = 0, openerHadSubstance = false;
+var seen = {}, junk = 0, openerHadSubstance = false, dodges = 0;
+var said = {};
+
+/* A setter that repeats itself word for word is the fastest way to get
+   clocked. If a line has already been sent, say the thing a different way. */
+function dedupe(out){
+  if (locked || done || !said[out]){ said[out] = 1; return out; }
+  var alt = explainNow();
+  if (!said[alt]){ said[alt] = 1; return alt; }
+  alt = "think this is easier on a call than going back and forth here, u free for 15 min this week";
+  if (!said[alt]) { said[alt] = 1; return alt; }
+  for (var i = 0; i < 4; i++){
+    var lr = lastResort();
+    if (!said[lr]){ said[lr] = 1; return lr; }
+  }
+  // Out of ways to say it. Sign off rather than repeat.
+  locked = true;
+  return "gonna leave it there for now, message me whenever ur ready";
+}
 
 var $ = function(id){ return document.getElementById(id); };
 var thread = $("thread"), msg = $("msg"), sendBtn = $("send");
@@ -622,12 +653,24 @@ function isVague(t){
   if (/^(not much|nothing|idk|dunno|not sure|the usual|this and that|stuff|a bit of everything|meh)\b/i.test(s)) return true;
   return s.split(/\s+/).length <= 3;
 }
+/* Texting shorthand has no vowels but is not gibberish. */
+var ABBR = /^(wdym|hbu|wbu|idk|tbh|ngl|lmk|brb|np|ty|thx|thnx|pls|plz|wyd|hmu|smh|fyi|btw|rn|ur|u|k|kk|y|n|ok|lol|lmao|gm|gn|wtf|wth|ffs|jk|nvm|rly|srsly|cba|tmr|yh|yhh|mb|ikr|imo|af)$/i;
+
 function isJunk(t){
   var s = t.trim();
+  if (ABBR.test(s)) return false;
   return s.length > 1 && !/[aeiou]/i.test(s) && /^[a-z]+$/i.test(s);
 }
 function isQuestion(t){
   return /\?/.test(t) || /^\s*(what|how|who|why|when|where|can (u|you)|do (u|you)|did (u|you)|is (it|this)|are (u|you)|whats|what.s|hows|how.s|would)\b/i.test(t);
+}
+
+/* They're asking what you meant, not dodging. Explain it differently. */
+var WDYM = /(what do (u|you) mean|wdym|how do (u|you) mean|not sure what (u|you) mean|dont (get|understand)|don.t (get|understand)|no idea what (u|you)|confused|come again|make sense\?|in what way|meaning\?|^\s*(what|huh|eh)\s*\?*\s*$|\?\?)/i;
+
+function explainNow(){
+  var k = asked && STEP[asked] ? asked : "situation";
+  return STEP[k].explain;
 }
 
 function reask(){
@@ -644,9 +687,17 @@ function advance(t){
 }
 
 function reply(text){
+  return dedupe(replyFor(text));
+}
+
+function replyFor(text){
   var t = String(text || "");
 
   if (done) return "already got u down, speak on the call";
+  if (locked) return "ill leave it with u";
+
+  // Being asked to explain outranks everything else.
+  if (WDYM.test(t) && asked !== null) return explainNow();
 
   // Remember what they do and what they want, for the pitch.
   // A compliment about your content is not them telling you their niche.
@@ -664,7 +715,7 @@ function reply(text){
   }
 
   // Nonsense repeatedly hands over, per the workflow's handover rules.
-  if (isJunk(t)){
+  if (!WDYM.test(t) && isJunk(t)){
     junk++;
     if (junk >= 2){ locked = true; return "cant really follow that, ill get charlie to pick this up"; }
     return "not sure i follow." + reask();
@@ -696,7 +747,10 @@ function reply(text){
 
   // Answering "hows it going" and asking back is not a dodge.
   var answeredGreeting = asked === "greet" && (GOOD.test(t) || BAD.test(t) || RECIP.test(t));
-  if (isQuestion(t) && !GREET.test(t) && !answeredGreeting) return "we can def get into that." + reask();
+  if (isQuestion(t) && !GREET.test(t) && !answeredGreeting){
+    dodges++;
+    return dodges >= 2 ? explainNow() : "we can def get into that." + reask();
+  }
 
   // Step 1.1 says clarify a vague answer before moving on.
   if (asked === "situation" && !clarified && (isVague(t) || GREET.test(t))){
