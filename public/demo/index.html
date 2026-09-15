@@ -456,7 +456,9 @@ var STEP = {
       return hi() + name + ", " + howsIt();
     },
     label: "hows things ur end",
-    explain: "just asking how ur weeks been, nothing deep"
+    explain: "just asking how ur weeks been, nothing deep",
+    explain2: "like has it been busy, quiet, stressful, whatever it is",
+    explain3: "ok simpler, u having a good week or a rough one"
   },
   /* Reacts to how they are, gives something back, then opens it up. */
   situation: {
@@ -464,11 +466,15 @@ var STEP = {
       return greetReact(t) + ", " + mine() + ". " + whatYou();
     },
     label: "what u got going on rn",
-    explain: "like what do u actually do. business, page, whatever ur building rn"
+    explain: "like what do u actually do. business, page, whatever ur building rn",
+    explain2: "like do u sell something already, coaching, a service, products. or still building it out",
+    explain3: "ok simpler, do u sell anything at the min, yes or no"
   },
   clarify:  { ask: function(){ return askClarify(); },
               label: "wheres the bottleneck",
-              explain: "like is the hard part getting people interested, or closing them once they are" },
+              explain: "like is the hard part getting people interested, or closing them once they are",
+              explain2: "like when someone lands in ur dms, whats the bit that actually goes wrong",
+              explain3: "ok simpler, is the problem getting people interested, or converting the ones who are"  },
   approach: { ask: function(t){
                 var ins = insight(t);
                 var lead;
@@ -479,13 +485,19 @@ var STEP = {
                 return lead + askApproach();
               },
               label: "what ur doing to get clients atm",
-              explain: "like outreach, ads, referrals, content. wheres the business actually coming from" },
+              explain: "like outreach, ads, referrals, content. wheres the business actually coming from",
+              explain2: "like if u signed someone this week, where would they most likely have come from",
+              explain3: "ok simpler, are u going out and finding clients or waiting for them to come to u" },
   goal:     { ask: function(t){ return ack() + ", " + insight(t) + askGoal(); },
               label: "where ur trying to take things",
-              explain: "like revenue or client numbers, where do u wanna be in 3 months" },
+              explain: "like revenue or client numbers, where do u wanna be in 3 months",
+              explain2: "like put a number on it. revenue a month or clients a month, either works",
+              explain3: "ok simpler, how much do u wanna be making a month" },
   gap:      { ask: function(){ return ackWarm() + ", " + askGap(); },
               label: "how close u are to that",
-              explain: "like are u nearly there already or is it a fair way off" },
+              explain: "like are u nearly there already or is it a fair way off",
+              explain2: "like if ur at 5k now and want 20k, thats the gap im asking about. where are u on that",
+              explain3: "ok simpler, are u closer to 10 percent of the way there or 90" },
   pitch: {
     ask: function(){
       var who  = mem.niche ? "another " + mem.niche : "someone in the same spot";
@@ -494,7 +506,9 @@ var STEP = {
            + goal + " too, would u be down for a quick call this week";
     },
     label: "whether ur down for a quick call",
-    explain: "just 15 min with me to see if what we do actually fits what ur doing, nothing formal"
+    explain: "just 15 min with me to see if what we do actually fits what ur doing, nothing formal",
+    explain2: "like a 15 min zoom, i ask about ur setup and show u how the setter would run on ur account",
+    explain3: "ok simpler, yes or no to a quick call this week"
   }
 };
 
@@ -685,17 +699,93 @@ function isQuestion(t){
   return /\?/.test(t) || /^\s*(what|how|who|why|when|where|can (u|you)|do (u|you)|did (u|you)|is (it|this)|are (u|you)|whats|what.s|hows|how.s|would)\b/i.test(t);
 }
 
-/* They're asking what you meant, not dodging. Explain it differently. */
-var WDYM = /(what do (u|you) mean|wdym|how do (u|you) mean|not sure what (u|you) mean|dont (get|understand)|don.t (get|understand)|no idea what (u|you)|confused|come again|make sense\?|in what way|meaning\?|^\s*(what|huh|eh)\s*\?*\s*$|\?\?)/i;
+/* Every way a person asks you to say it differently. */
+var WDYM = new RegExp([
+  "what do (u|you) mean","wdym","how do (u|you) mean","what d(o|ya) ya mean",
+  "in what (regard|sense|way|respect)","in which (way|sense)","about what","regarding what",
+  "how so","such as","like what","what exactly","which (bit|part)","meaning\\?*\\s*$",
+  "not sure what (u|you) mean","dont (get|understand)","don.t (get|understand)",
+  "no idea what (u|you)","confused","come again","say more","elaborate","go on then",
+  "^\\s*(what|huh|eh|sorry|pardon)\\s*\\?*\\s*$","\\?\\?"
+].join("|"), "i");
 
-function explainNow(){
-  var k = asked && STEP[asked] ? asked : "situation";
-  return STEP[k].explain;
+/* Things a lead can ask about that deserve a real answer. */
+var TOPICS = [
+  { re:/\b(call|meeting|zoom|the chat)\b/i,
+    a:"the call is 15 min, i ask about ur setup and show u how itd actually run for u" },
+  { re:/\b(system|setter|bot|automation|software|tool)\b/i,
+    a:"its an ai setter that sits in ur dms, qualifies people and books the ones worth ur time" },
+  { re:/\b(guarantee|risk|contract|locked in|lock in|cancel|commitment)\b/i,
+    a:"nothing locked in, we work all that out on the call once i know ur setup" },
+  { re:/\b(start|setup|set up|onboard|install|build)\b/i,
+    a:"we build it round ur account, usually live within a week" },
+  { re:/\b(dms?|inbox|instagram|\big\b|messages)\b/i,
+    a:"it runs off ur instagram dms, every message that comes in gets handled the way ud handle it" },
+  { re:/\b(clients?|leads?|bookings?|appointments?|sales)\b/i,
+    a:"the point is more of ur dms turning into booked calls without u replying to every one" },
+  { re:/\b(team|who runs|manage|support)\b/i,
+    a:"me and my business partner run it, ur not left to figure anything out" }
+];
+function topicFor(t){
+  for (var i = 0; i < TOPICS.length; i++) if (TOPICS[i].re.test(t)) return TOPICS[i].a;
+  return "";
 }
 
+function anyObjection(t){
+  for (var i = 0; i < OBJ.length; i++) if (OBJ[i].re.test(t)) return true;
+  return false;
+}
+
+/* Asking to be understood, rather than asking about something specific. */
+function isClarify(t){
+  return WDYM.test(t) && !anyObjection(t) && !topicFor(t);
+}
+
+/* Ask twice and you get a different, deeper answer. Never the same one. */
+var explained = {};
+function explainNow(){
+  var k = asked && STEP[asked] ? asked : "situation";
+  explained[k] = (explained[k] || 0) + 1;
+  if (explained[k] === 1) return STEP[k].explain;
+  if (explained[k] === 2 && STEP[k].explain2) return STEP[k].explain2;
+  return STEP[k].explain3 || STEP[k].explain2 || STEP[k].explain;
+}
+
+/* The last thing they actually said, so a reply is never generic. */
+var STOP = /^(what|how|who|why|when|where|which|is|are|was|do|does|did|the|a|an|and|or|but|to|of|in|on|for|with|about|that|this|it|its|you|your|youre|ure|can|could|would|should|will|regard|sense|way|respect|mean|means|meant|so|like|such|then|yeah|yes|not|nope|okay|just|really|actually|even|also|got|get|bit|part|thing|stuff|there|here|much|many|more|some|any)$/i;
+function reflect(t){
+  var w = t.toLowerCase().replace(/[^a-z0-9' ]/g, " ").split(/\s+/)
+           .filter(function(x){ return x.length > 2 && !STOP.test(x); });
+  return w.length ? w[w.length - 1] : "";
+}
+
+var deflect = rot([
+  "not really my area that one",
+  "couldnt tell u on that one",
+  "thats a new one on me",
+  "no clue on that one tbh"
+]);
+var unknownQs = 0;
+
+/* A question we have no branch for still gets a real answer, never a default. */
+function answerQuestion(t){
+  var topic = topicFor(t);
+  if (topic) return topic + "." + reask();
+  unknownQs++;
+  var w = reflect(t);
+  if (unknownQs === 1 && w) return "what do u mean by " + w + " exactly";
+  return deflect() + "." + reask();
+}
+
+var reaskForm = rot([
+  function(L){ return " lmk on " + L + " tho"; },
+  function(L){ return " still curious about " + L + " tho"; },
+  function(L){ return " anyway, back to " + L; },
+  function(L){ return " but yeah, " + L; }
+]);
 function reask(){
   var k = asked && STEP[asked] ? asked : "situation";
-  return " lmk on " + STEP[k].label + " tho";
+  return reaskForm()(STEP[k].label);
 }
 function advance(t){
   var next = ORDER[ORDER.indexOf(asked) + 1];
@@ -717,7 +807,7 @@ function replyFor(text){
   if (locked) return "ill leave it with u";
 
   // Being asked to explain outranks everything else.
-  if (WDYM.test(t) && asked !== null) return explainNow();
+  if (asked !== null && isClarify(t)) return explainNow();
 
   // Remember what they do and what they want, for the pitch.
   // A compliment about your content is not them telling you their niche.
@@ -735,7 +825,7 @@ function replyFor(text){
   }
 
   // Nonsense repeatedly hands over, per the workflow's handover rules.
-  if (!WDYM.test(t) && isJunk(t)){
+  if (!isClarify(t) && isJunk(t)){
     junk++;
     if (junk >= 2){ locked = true; return "cant really follow that, ill get charlie to pick this up"; }
     return "not sure i follow." + reask();
@@ -761,16 +851,13 @@ function replyFor(text){
       locked = true;
       return soft() + ", no pressure at all. just lmk whenever u wanna look at it";
     }
-    if (isQuestion(t)) return "we can def get into that on the call." + reask();
+    if (isQuestion(t)) return answerQuestion(t);
     return soft() + "." + reask();
   }
 
   // Answering "hows it going" and asking back is not a dodge.
   var answeredGreeting = asked === "greet" && (GOOD.test(t) || BAD.test(t) || RECIP.test(t));
-  if (isQuestion(t) && !GREET.test(t) && !answeredGreeting){
-    dodges++;
-    return dodges >= 2 ? explainNow() : "we can def get into that." + reask();
-  }
+  if (isQuestion(t) && !GREET.test(t) && !answeredGreeting) return answerQuestion(t);
 
   // Step 1.1 says clarify a vague answer before moving on.
   if (asked === "situation" && !clarified && (isVague(t) || GREET.test(t))){
