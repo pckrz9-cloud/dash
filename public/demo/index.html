@@ -282,7 +282,7 @@ var lastResort = rot([
 
 /* ---- warming up before any business question ---- */
 var GOOD = /\b(good|great|fine|not bad|all good|well|grand|decent|cant complain|can.t complain|solid|alright|ok|okay|chillin|chilling|blessed|smashing it|vibing)\b/i;
-var BAD  = /\b(tired|rough|stressed|not great|been better|awful|terrible|hectic|struggling|knackered|shattered|long week|dead)\b/i;
+var BAD  = /\b(tired|rough|stressed|not great|been better|awful|terrible|hectic|struggling|knackered|shattered|long week|dead|shit|shite|crap|grim|mental)\b/i;
 
 var hi       = rot(["yo","yo","hey","yooo"]);
 var howsIt   = rot(["hows it going","u alright","hows things ur end","hows ur week been"]);
@@ -304,6 +304,26 @@ var whatYou  = rot([
 
 /* "u?" / "hbu" is them asking back, not dodging. */
 var RECIP = /\b(u|you|urself|yourself|hbu|wbu|and (u|you)|how about (u|you)|what about (u|you))\s*\??\s*$/i;
+
+/* Swearing is normal in dms. Only hand over when it is aimed AT us:
+   an insult with a second person target, or being told to go away.
+   "fuck yeah", "business is shit", "fucking hard" are just how people talk. */
+var HOSTILE = new RegExp([
+  "\\b(fuck|fk|f\\*+ck)\\s*(off|you\\b|u\\b|urself|yourself)",
+  "\\bstfu\\b",
+  "\\bshut (the fuck )?up\\b",
+  "\\b(piss|jog|do) off\\b",
+  "\\bget lost\\b",
+  "\\bleave me alone\\b",
+  "\\bgo away\\b",
+  "\\b(stop|quit) (messaging|texting|dming|dm.ing|contacting|spamming|harassing) me\\b",
+  "\\bdon.?t (message|text|dm|contact) me\\b",
+  "\\b(u|you|ur|your|youre|you.re|ure)\\s*(are|r)?\\s*(a|an)?\\s*(idiot|moron|dickhead|wanker|prick|twat|bellend|clown|joke|scammer|spammer|fraud|creep|weirdo|loser|muppet|knobhead)\\b",
+  "\\b(this|that|it|ur|your|youre|you.re)\\s*(is|s|are)?\\s*(a\\s*)?(scam|fraud|con artist)\\b",
+  "\\bscammer\\b",
+  "\\bwaste of (my |ur |your )?time\\b",
+  "\\b(report|block)(ing|ed)? (u|you)\\b"
+].join("|"), "i");
 
 function greetReact(t){
   if (BAD.test(t))  return reBad();
@@ -488,7 +508,7 @@ var CLOSE  = " would it make sense to hop on for 15 min and find out";
 
 var OBJ = [
   { id:"rude",
-    re:/\b(fuck|shit|piss off|scam|scammer|stupid|idiot|dickhead|wanker|shut up|waste of time|bullshit)\b/i,
+    re:HOSTILE,
     reply:function(){ return "no worries, ill leave u to it"; },
     ends:true },
 
